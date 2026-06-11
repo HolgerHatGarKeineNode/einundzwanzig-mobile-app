@@ -71,11 +71,14 @@ return [
      * Only claim these portal paths as verified App Links (requires the
      * local vendor patch in RunsAndroid::generateDeepLinkFilters). Claiming
      * the whole host would intercept the app's own Browser::inApp/open
-     * calls to the portal (e.g. the mobile login page).
+     * calls to the portal (e.g. the mobile login page). The signer
+     * callback (/auth/mobile/signed/…) is intentionally NOT claimed: its
+     * URL carries the whole URL-encoded event and loading it into the
+     * embedded WebView crashes it (SIGILL) — the portal handles it in the
+     * browser and redirects to the short /app/auth?token=… handoff.
      */
     'deeplink_path_prefixes' => [
         '/app/',
-        '/auth/mobile/signed/',
     ],
 
     /*
