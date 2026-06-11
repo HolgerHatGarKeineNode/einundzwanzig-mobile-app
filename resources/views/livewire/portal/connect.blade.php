@@ -15,7 +15,21 @@ new class extends Component {
         $this->refreshState($portalAuth);
     }
 
-    public function connect(PortalAuth $portalAuth): void
+    /**
+     * Launch the NIP-55 signer (e.g. Amber) directly via an ACTION_VIEW
+     * intent. The signer signs locally and opens the portal callback, which
+     * issues the token and hands it back via the einundzwanzig:// App Link.
+     * No portal page and no relay round-trip — the fastest login path.
+     */
+    public function loginWithNostr(PortalAuth $portalAuth): void
+    {
+        Browser::open($portalAuth->nostrSignerUri($portalAuth->newChallenge()));
+    }
+
+    /**
+     * Open the Lightning login page (QR + LNURL-auth) in the in-app browser.
+     */
+    public function loginWithLightning(PortalAuth $portalAuth): void
     {
         Browser::inApp($portalAuth->loginUrl());
     }
@@ -67,10 +81,15 @@ new class extends Component {
     @else
         <flux:heading size="lg">{{ __('Dein Portal-Konto') }}</flux:heading>
         <flux:text class="mt-2">
-            {{ __('Verbinde die App mit deinem Einundzwanzig-Portal-Konto, um deine Meetups und Kurse zu sehen. Der Login öffnet sich im Browser — mit Lightning oder Nostr (Amber).') }}
+            {{ __('Verbinde die App mit deinem Einundzwanzig-Portal-Konto, um deine Meetups und Kurse zu sehen.') }}
         </flux:text>
-        <flux:button wire:click="connect" variant="primary" icon="bolt" class="mt-4 w-full cursor-pointer">
-            {{ __('Mit Einundzwanzig Portal anmelden') }}
-        </flux:button>
+        <div class="mt-4 flex flex-col gap-2">
+            <flux:button wire:click="loginWithNostr" variant="primary" icon="key" class="w-full cursor-pointer">
+                {{ __('Mit Nostr anmelden') }}
+            </flux:button>
+            <flux:button wire:click="loginWithLightning" icon="bolt" class="w-full cursor-pointer">
+                {{ __('Mit Lightning anmelden') }}
+            </flux:button>
+        </div>
     @endif
 </section>

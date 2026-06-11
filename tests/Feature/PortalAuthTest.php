@@ -31,64 +31,46 @@ it('stores the token from the app-link handoff and redirects home', function () 
         ->assertRedirect(route('home'));
 });
 
-it('exchanges a signed event for a token when the signer callback opens the app', function () {
-    $k1 = str_repeat('a', 64);
-    $event = ['id' => 'x', 'sig' => 'y', 'kind' => 22242];
-
-    Http::fake([
-        'portal.einundzwanzig.space/api/mobile/token' => Http::response(['token' => '13|exchanged']),
-    ]);
-    SecureStorage::shouldReceive('set')
-        ->once()
-        ->with('portal_api_token', '13|exchanged')
-        ->andReturnTrue();
-
-    $this->get('/auth/mobile/signed/'.$k1.'/'.rawurlencode(json_encode($event)))
-        ->assertRedirect(route('home'));
-
-    Http::assertSent(fn ($request) => $request->url() === 'https://portal.einundzwanzig.space/api/mobile/token'
-        && $request['k1'] === $k1
-        && $request['event']['kind'] === 22242);
-});
-
-it('redirects home with an error flag when the token exchange fails', function () {
-    $k1 = str_repeat('b', 64);
-
-    Http::fake([
-        'portal.einundzwanzig.space/api/mobile/token' => Http::response(['status' => 'ERROR'], 400),
-    ]);
-    SecureStorage::shouldReceive('set')->never();
-
-    $this->get('/auth/mobile/signed/'.$k1.'/'.rawurlencode(json_encode(['kind' => 22242])))
-        ->assertRedirect(route('home'))
-        ->assertSessionHas('portal-connect-failed');
-});
-
-it('opens unknown portal paths in the system browser via the fallback route', function () {
-    Browser::shouldReceive('open')
-        ->once()
-        ->with('https://portal.einundzwanzig.space/de/meetup/some-meetup');
-
-    $this->get('/de/meetup/some-meetup')->assertRedirect(route('home'));
-});
-
-it('shows the connect button on home when no token is stored', function () {
+it('shows both login buttons on home when no token is stored', function () {
     // Without the native bridge SecureStorage::get() returns null,
     // so the component renders the guest state.
     $this->get('/')
         ->assertOk()
-        ->assertSee(__('Mit Einundzwanzig Portal anmelden'));
+        ->assertSee(__('Mit Nostr anmelden'))
+        ->assertSee(__('Mit Lightning anmelden'));
 });
 
-it('opens the portal mobile login in the in-app browser when connecting', function () {
+it('launches the NIP-55 signer directly when logging in with Nostr', function () {
+    Browser::shouldReceive('open')
+        ->once()
+        ->withArgs(fn (string $uri) => str_starts_with($uri, 'nostrsigner:')
+            && str_contains($uri, 'type=sign_event')
+            && str_contains($uri, rawurlencode('https://portal.einundzwanzig.space/auth/mobile/signed/')));
+
+    Livewire\Livewire::test('portal.connect')->call('loginWithNostr');
+});
+
+it('opens the portal lightning login in the in-app browser', function () {
     Browser::shouldReceive('inApp')
         ->once()
         ->with(app(PortalAuth::class)->loginUrl());
 
-    Livewire\Livewire::test('portal.connect')->call('connect');
+    Livewire\Livewire::test('portal.connect')->call('loginWithLightning');
 });
 
-it('builds the login url with the whitelisted redirect uri and device name', function () {
+it('builds the nostr signer uri with the challenge in the event and callback path', function () {
+    $k1 = str_repeat('a', 64);
+    $uri = app(PortalAuth::class)->nostrSignerUri($k1);
+
+    expect($uri)->toStartWith('nostrsigner:')
+        ->and($uri)->toContain('type=sign_event')
+        ->and($uri)->toContain('returnType=event')
+        // The k1 appears in both the event challenge tag and the callback path.
+        ->and(rawurldecode($uri))->toContain('"challenge","'.$k1.'"')
+        ->and(rawurldecode($uri))->toContain('/auth/mobile/signed/'.$k1.'/');
+});
+
+it('builds the lightning login url with the whitelisted redirect uri and device name', function () {
     $url = app(PortalAuth::class)->loginUrl();
 
     expect($url)->toStartWith('https://portal.einundzwanzig.space/auth/mobile?')

@@ -36,6 +36,43 @@ final class PortalAuth
         return 'Einundzwanzig App (Android)';
     }
 
+    /**
+     * Build the NIP-55 signer URI for a fresh login challenge.
+     *
+     * Launching this via an ACTION_VIEW intent (Browser::open) opens the
+     * NIP-55 signer (e.g. Amber) directly — no portal page in between. The
+     * signer signs the kind-22242 event locally and opens the callback URL
+     * (the challenge travels in its path, the signed event is appended), so
+     * verification is stateless and needs no relay round-trip.
+     */
+    public function nostrSignerUri(string $k1): string
+    {
+        $event = [
+            'kind' => 22242,
+            'created_at' => now()->timestamp,
+            'content' => '',
+            'tags' => [['challenge', $k1]],
+        ];
+
+        // Amber strips query strings when it rebuilds the callback URL, so
+        // the k1 travels in the path; the signer appends the signed event
+        // after the trailing slash.
+        $callbackUrl = $this->baseUrl().'/auth/mobile/signed/'.$k1.'/';
+
+        return 'nostrsigner:'.rawurlencode(json_encode($event)).'?'.http_build_query([
+            'compressionType' => 'none',
+            'returnType' => 'event',
+            'type' => 'sign_event',
+            'appName' => 'Einundzwanzig',
+            'callbackUrl' => $callbackUrl,
+        ]);
+    }
+
+    public function newChallenge(): string
+    {
+        return bin2hex(random_bytes(32));
+    }
+
     public function storeToken(string $token): bool
     {
         return SecureStorage::set(self::TOKEN_KEY, $token);
@@ -54,35 +91,6 @@ final class PortalAuth
     public function forgetToken(): bool
     {
         return SecureStorage::delete(self::TOKEN_KEY);
-    }
-
-    /**
-     * Trade a NIP-55-signed login event (received via the verified App
-     * Link callback) for a Sanctum token and store it.
-     *
-     * @param  array<string, mixed>  $signedEvent
-     */
-    public function exchangeSignedEvent(string $k1, array $signedEvent): bool
-    {
-        try {
-            $response = Http::timeout(10)
-                ->acceptJson()
-                ->post($this->baseUrl().'/api/mobile/token', [
-                    'k1' => $k1,
-                    'event' => $signedEvent,
-                    'device_name' => $this->deviceName(),
-                ]);
-        } catch (ConnectionException) {
-            return false;
-        }
-
-        $token = $response->json('token');
-
-        if (! $response->successful() || ! is_string($token) || $token === '') {
-            return false;
-        }
-
-        return $this->storeToken($token);
     }
 
     /**
