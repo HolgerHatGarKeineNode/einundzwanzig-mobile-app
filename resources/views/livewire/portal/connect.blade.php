@@ -16,15 +16,16 @@ new class extends Component {
     }
 
     /**
-     * Open the headless Nostr launcher in the system browser (NOT an in-app
-     * Custom Tab): the NIP-55 signer's callback re-opens the portal via
-     * ACTION_VIEW, and a Custom Tab owned by this app does not reliably show
-     * that follow-up navigation. The full browser keeps the whole flow —
-     * launcher, signer callback, handoff page — in one visible tab.
+     * Open the headless Nostr launcher in an in-app Custom Tab. This keeps
+     * the app's task (and process) alive while the user signs, so the
+     * signer's einundzwanzig://signed callback opens the *running* app and
+     * the deep link loads immediately. Opening the launcher in the full
+     * system browser (Browser::open) backgrounds and kills the app, forcing
+     * a cold start whose pending-deep-link handling is racy.
      */
     public function loginWithNostr(PortalAuth $portalAuth): void
     {
-        Browser::open($portalAuth->nostrLoginUrl());
+        Browser::inApp($portalAuth->nostrLoginUrl());
     }
 
     /**

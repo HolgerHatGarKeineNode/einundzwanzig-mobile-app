@@ -73,8 +73,8 @@ it('shows both login buttons on home when no token is stored', function () {
         ->assertSee(__('Mit Lightning anmelden'));
 });
 
-it('opens the portal nostr launcher in the system browser when logging in with Nostr', function () {
-    Browser::shouldReceive('open')
+it('opens the portal nostr launcher in the in-app browser when logging in with Nostr', function () {
+    Browser::shouldReceive('inApp')
         ->once()
         ->with(app(PortalAuth::class)->nostrLoginUrl());
 
