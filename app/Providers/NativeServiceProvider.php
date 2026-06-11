@@ -3,6 +3,11 @@
 namespace App\Providers;
 
 use Illuminate\Support\ServiceProvider;
+use Native\Mobile\Providers\BrowserServiceProvider;
+use Native\Mobile\Providers\DialogServiceProvider;
+use Native\Mobile\Providers\NetworkServiceProvider;
+use Native\Mobile\Providers\SecureStorageServiceProvider;
+use Native\Mobile\Providers\ShareServiceProvider;
 
 class NativeServiceProvider extends ServiceProvider
 {
@@ -29,19 +34,17 @@ class NativeServiceProvider extends ServiceProvider
      * This is a security measure to prevent transitive dependencies from
      * automatically registering plugins without your explicit consent.
      *
-     * @return array<int, class-string<\Illuminate\Support\ServiceProvider>>
+     * @return array<int, class-string<ServiceProvider>>
      */
     public function plugins(): array
     {
         return [
-            \Native\Mobile\Providers\BrowserServiceProvider::class,
-            \Native\Mobile\Providers\DialogServiceProvider::class,
-            \Native\Mobile\Providers\NetworkServiceProvider::class,
-            \Native\Mobile\Providers\ShareServiceProvider::class,
-        
-        
-        
-        
+            BrowserServiceProvider::class,
+            DialogServiceProvider::class,
+            NetworkServiceProvider::class,
+            ShareServiceProvider::class,
+            SecureStorageServiceProvider::class,
+
         ];
     }
 }

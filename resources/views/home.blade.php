@@ -10,6 +10,8 @@
             <flux:badge color="orange" size="sm" class="mt-4">{{ __('Frühe Vorschau') }}</flux:badge>
         </section>
 
+        <livewire:portal.connect/>
+
         <section class="flex flex-col gap-3">
             <flux:heading size="lg" level="2">{{ __('Entdecken') }}</flux:heading>
 

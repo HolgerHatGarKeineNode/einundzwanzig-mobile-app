@@ -35,4 +35,8 @@ return [
         ],
     ],
 
+    'portal' => [
+        'url' => env('PORTAL_URL', 'https://portal.einundzwanzig.space'),
+    ],
+
 ];

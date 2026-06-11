@@ -22,15 +22,16 @@
 
 Arbeitsverzeichnis: `/home/user/Code/einundzwanzig-app` (eigener Branch, z. B. `feature/mobile-auth`).
 
-- [ ] 1.1 Bestehenden Login-Flow analysieren: LNURL (`app/Http/Controllers/LnurlAuthController.php`, `routes/auth.php`, `POST /api/lnurl-auth-callback`, `GET /auth/complete-lightning/{k1}`) und Nostr-Login-Komponente finden und verstehen.
-- [ ] 1.2 Route `GET /auth/mobile` anlegen: schlanke, mobile-optimierte Login-View (Livewire/Flux) mit nur Lightning + Nostr. Query-Param `redirect_uri` (nur `einundzwanzig://`-Schema zulassen, Whitelist!) und optional `device_name`.
-- [ ] 1.3 Token-Erzeugung nach erfolgreichem Login: `auth()->user()->createToken($deviceName, [abilities])` → Redirect auf `einundzwanzig://auth?token={plainTextToken}`. Flow-State (redirect_uri) über die Session des Login-Vorgangs tragen — auch über den LNURL-Callback hinweg (k1 ↔ Session-Mapping beachten).
-- [ ] 1.4 Wiederverwendung bei bereits eingeloggter Session: ist der User im In-App-Browser schon eingeloggt, Bestätigungsseite zeigen („Als {name} mit der App verbinden?") statt erneutem Login.
-- [ ] 1.5 Sicherheit: Rate-Limiting auf `/auth/mobile`, Token-Name = Gerätename, alte Tokens desselben Geräts optional ersetzen, Abilities minimal halten (v1: read + my-*).
-- [ ] 1.6 `GET /api/user` (Sanctum-geschützt) prüfen/anlegen: liefert Profil des Token-Users (Name, Avatar, is_lecturer, Meetup-Mitgliedschaften) — die App braucht das direkt nach dem Login.
-- [ ] 1.7 Token-Verwaltung im Portal-Dashboard prüfen: User soll App-Tokens sehen und widerrufen können (existiert ggf. schon über Sanctum-Token-UI).
-- [ ] 1.8 Pest-Tests im Portal für den kompletten Mobile-Auth-Flow (Redirect-Whitelist, Token-Erzeugung, Abilities).
-- [ ] 1.9 Pint laufen lassen, Branch committen. (Deployment macht der User.)
+- [x] 1.1 Bestehenden Login-Flow analysieren: LNURL (k1-Challenge → Wallet-Callback → `LoginKey`-Row → `wire:poll` → Completion-Route) und Nostr (signiertes Kind-22242-Event mit Session-Challenge via `window.nostr`).
+- [x] 1.2 Route `GET /auth/mobile` (Livewire-View `auth.mobile-login`): Lightning-QR + **Nostr via NIP-55-Signer (Amber)** statt `window.nostr` (im In-App-Browser gibt es keine Extensions). `redirect_uri`-Whitelist (`einundzwanzig://auth`), `device_name`-Param. Beide Methoden teilen sich ein k1; Amber ruft `GET /api/nostr-login-callback?k1=…&event=` (Event-Verifikation in `App\Support\NostrLogin`, geteilt mit Desktop-Login).
+- [x] 1.3 Token-Erzeugung: `GET /auth/mobile/complete/{k1}` prüft `LoginKey` (5 min TTL), erzeugt Token (Name = Gerätename, ersetzt alte Tokens gleichen Namens), Redirect auf `einundzwanzig://auth?token=…`. Flow-State (`mobile_auth`) liegt in der Session der Login-Seite.
+- [x] 1.4 Eingeloggte Session: Bestätigungsseite („Verbinden" / „Mit anderem Konto anmelden") → `POST /auth/mobile/confirm`.
+- [x] 1.5 Sicherheit: `throttle:30,1` auf allen neuen Routen, Redirect-Whitelist hart kodiert im Controller, Token-Replacement pro Gerät. Abilities: Standard `['*']` — die API prüft derzeit keine Abilities, granulare Scopes wären nur kosmetisch (siehe Entscheidungs-Log).
+- [x] 1.6 `GET /api/user` (auth:sanctum, `Api\UserController`): id, name, email, nostr, is_lecturer, is_leader, avatar.
+- [x] 1.7 Token-Verwaltung existiert bereits: `resources/views/livewire/settings/api-tokens.blade.php`.
+- [x] 1.8 Pest-Tests: `tests/Feature/Auth/MobileAuthTest.php` (10 Tests: Whitelist, Callback-Verifikation, falsche Challenge, Token-Ausgabe + API-Nutzung, Token-Replacement, Confirm-Screen, /api/user). Alle 27 Auth-Tests grün.
+- [x] 1.9 Pint ok, committet auf `feature/mobile-auth` (07169df). Deployment macht der User.
+- [ ] 1.10 Manueller End-to-End-Test mit Amber auf dem Emulator (Portal muss dafür vom Emulator erreichbar sein, z. B. `adb reverse` auf den lokalen Portal-Port). ⚠️ User muss die Signatur in Amber bestätigen — vorher Bescheid geben! Lightning-Teil bleibt ungetestet (kein Wallet vorhanden).
 
 ## Phase 2 — App: Deep Link, SecureStorage, Login-Flow
 
@@ -38,6 +39,7 @@ Arbeitsverzeichnis: dieses Projekt.
 
 - [ ] 2.1 NativePHP-Plugins registrieren (`browser`, `dialog`, `network`, `share`) — laut Memory installiert, aber nicht registriert. Skill `nativephp-mobile` aktivieren und Registrierungsweg prüfen.
 - [ ] 2.2 Deep-Link-Schema `einundzwanzig://` in NativePHP konfigurieren (`config/nativephp.php` / `.env` `NATIVEPHP_DEEPLINK_SCHEME`); Handler für `einundzwanzig://auth?token=...` bauen.
+- [ ] 2.2b SecureStorage-Premium-Plugin installieren (`composer require` aus dem Marketplace `https://plugins.nativephp.com`, vom User am 2026-06-11 gekauft) und registrieren: `php artisan native:plugin:register <vendor/paket>` + Rebuild.
 - [ ] 2.3 `AuthService` (o. ä.): Token aus Deep Link entgegennehmen → **SecureStorage** (NativePHP) speichern, nie in DB/Session/Logs. Logout = Token lokal löschen + `DELETE`-Call ans Portal (Token revoken).
 - [ ] 2.4 Login-Screen in der App: nur ein Button „Mit Einundzwanzig Portal anmelden" → öffnet `https://portal.einundzwanzig.space/auth/mobile?redirect_uri=einundzwanzig://auth&device_name={gerät}` im In-App-Browser (browser-Plugin). Lokale `.env`-Konfig `PORTAL_URL` für Dev gegen lokales Portal.
 - [ ] 2.5 Auth-Middleware/State in der App: eingeloggt vs. Gast; nach Login `GET /api/user` ziehen und Profil lokal cachen. Gast-Modus erlaubt die öffentlichen Read-Inhalte trotzdem (API ist public).
@@ -102,6 +104,9 @@ Arbeitsverzeichnis: dieses Projekt.
 
 ## Entscheidungs-Log
 
+- 2026-06-11: Mobile-Nostr-Login via **NIP-55/Amber** (Intent-URL `nostrsigner:` + Server-Callback) statt `window.nostr` — im In-App-Browser gibt es keine Browser-Extensions. Testgerät hat Amber installiert; kein Lightning-Wallet zum Testen vorhanden.
+- 2026-06-11: Token-Abilities = Standard `['*']`: die Portal-API prüft keine Sanctum-Abilities, granulare Scopes wären irreführend. Bei Bedarf in v2 nachrüsten.
+- 2026-06-11: SecureStorage-Premium-Plugin gekauft (Marketplace plugins.nativephp.com) → in Phase 2 installieren + registrieren.
 - 2026-06-11: Deep-Link-Flow für Token-Übergabe gewählt (statt In-App-Formular oder Device-Code).
 - 2026-06-11: Login nur Lightning (LNURL) + Nostr, wie Portal-Login. Keine eigene Registrierung in der App.
 - 2026-06-11: v1-Module = Meetups & Termine, Kurse & Referenten, Orte & Karte. v1 read-only + Auth.
