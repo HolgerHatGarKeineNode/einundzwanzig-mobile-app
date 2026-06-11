@@ -68,6 +68,17 @@ return [
     'deeplink_host' => env('NATIVEPHP_DEEPLINK_HOST'),
 
     /*
+     * Only claim these portal paths as verified App Links (requires the
+     * local vendor patch in RunsAndroid::generateDeepLinkFilters). Claiming
+     * the whole host would intercept the app's own Browser::inApp/open
+     * calls to the portal (e.g. the mobile login page).
+     */
+    'deeplink_path_prefixes' => [
+        '/app/',
+        '/auth/mobile/signed/',
+    ],
+
+    /*
     |--------------------------------------------------------------------------
     | Start URL
     |--------------------------------------------------------------------------
