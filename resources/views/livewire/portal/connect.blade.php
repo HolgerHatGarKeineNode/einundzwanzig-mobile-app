@@ -16,13 +16,15 @@ new class extends Component {
     }
 
     /**
-     * Open the headless Nostr launcher in the in-app browser, which fires
-     * the NIP-55 signer (e.g. Amber). Signing is local (no relay), and the
-     * token comes back via the einundzwanzig:// App Link.
+     * Open the headless Nostr launcher in the system browser (NOT an in-app
+     * Custom Tab): the NIP-55 signer's callback re-opens the portal via
+     * ACTION_VIEW, and a Custom Tab owned by this app does not reliably show
+     * that follow-up navigation. The full browser keeps the whole flow —
+     * launcher, signer callback, handoff page — in one visible tab.
      */
     public function loginWithNostr(PortalAuth $portalAuth): void
     {
-        Browser::inApp($portalAuth->nostrLoginUrl());
+        Browser::open($portalAuth->nostrLoginUrl());
     }
 
     /**
