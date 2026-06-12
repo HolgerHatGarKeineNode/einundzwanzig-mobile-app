@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use Illuminate\Http\Client\ConnectionException;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 use Native\Mobile\Facades\SecureStorage;
 
@@ -13,6 +14,10 @@ use Native\Mobile\Facades\SecureStorage;
 final class PortalAuth
 {
     private const TOKEN_KEY = 'portal_api_token';
+
+    private const PROFILE_CACHE_KEY = 'portal_profile';
+
+    private const PROFILE_CACHE_TTL_DAYS = 30;
 
     public function baseUrl(): string
     {
@@ -67,7 +72,32 @@ final class PortalAuth
 
     public function forgetToken(): bool
     {
+        Cache::forget(self::PROFILE_CACHE_KEY);
+
         return SecureStorage::delete(self::TOKEN_KEY);
+    }
+
+    /**
+     * Log out: revoke the token at the portal (best effort — offline logout
+     * must still work), then delete it from the keystore and drop the
+     * cached profile.
+     */
+    public function logout(): void
+    {
+        $token = $this->token();
+
+        if ($token !== null) {
+            try {
+                Http::timeout(10)
+                    ->withToken($token)
+                    ->acceptJson()
+                    ->delete($this->baseUrl().'/api/mobile/token');
+            } catch (ConnectionException) {
+                // The token is gone locally either way; it expires server-side.
+            }
+        }
+
+        $this->forgetToken();
     }
 
     /**
@@ -100,10 +130,13 @@ final class PortalAuth
     }
 
     /**
-     * Fetch the token owner's profile from the portal. Returns null when
-     * offline or not authenticated; a 401 discards the stored token.
+     * Fetch the token owner's profile from the portal and cache it locally,
+     * so the last known profile is still shown while offline. A 401
+     * discards the stored token and the cached profile.
      *
-     * @return array{id: int, name: string, email: string|null, nostr: string|null, is_lecturer: bool, is_leader: bool, avatar: string|null}|null
+     * Keys: id, name, email, nostr, is_lecturer, is_leader, avatar.
+     *
+     * @return array<string, mixed>|null
      */
     public function profile(): ?array
     {
@@ -119,7 +152,7 @@ final class PortalAuth
                 ->acceptJson()
                 ->get($this->baseUrl().'/api/user');
         } catch (ConnectionException) {
-            return null;
+            return $this->cachedProfile();
         }
 
         if ($response->unauthorized()) {
@@ -128,6 +161,28 @@ final class PortalAuth
             return null;
         }
 
-        return $response->successful() ? $response->json() : null;
+        if (! $response->successful()) {
+            return $this->cachedProfile();
+        }
+
+        $profile = $response->json();
+
+        if (is_array($profile)) {
+            Cache::put(self::PROFILE_CACHE_KEY, $profile, now()->addDays(self::PROFILE_CACHE_TTL_DAYS));
+        }
+
+        return $profile;
+    }
+
+    /**
+     * The locally cached profile from the last successful fetch.
+     *
+     * @return array<string, mixed>|null
+     */
+    public function cachedProfile(): ?array
+    {
+        $profile = Cache::get(self::PROFILE_CACHE_KEY);
+
+        return is_array($profile) ? $profile : null;
     }
 }

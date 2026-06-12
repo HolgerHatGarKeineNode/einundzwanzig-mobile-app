@@ -1,6 +1,8 @@
 <?php
 
 use App\Services\PortalAuth;
+use Illuminate\Http\Client\ConnectionException;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 use Native\Mobile\Facades\Browser;
 use Native\Mobile\Facades\SecureStorage;
@@ -117,12 +119,62 @@ it('fetches the profile with the stored token', function () {
     Http::assertSent(fn ($request) => $request->hasHeader('Authorization', 'Bearer 12|secrettoken'));
 });
 
-it('discards the stored token when the portal rejects it', function () {
+it('discards the stored token and the cached profile when the portal rejects it', function () {
     SecureStorage::shouldReceive('get')->with('portal_api_token')->andReturn('12|revoked');
     SecureStorage::shouldReceive('delete')->once()->with('portal_api_token')->andReturnTrue();
+    Cache::put('portal_profile', ['id' => 7, 'name' => 'Satoshi']);
     Http::fake([
         'portal.einundzwanzig.space/api/user' => Http::response(null, 401),
     ]);
 
-    expect(app(PortalAuth::class)->profile())->toBeNull();
+    expect(app(PortalAuth::class)->profile())->toBeNull()
+        ->and(Cache::has('portal_profile'))->toBeFalse();
+});
+
+it('caches the profile and serves it while the portal is unreachable', function () {
+    SecureStorage::shouldReceive('get')->with('portal_api_token')->andReturn('12|secrettoken');
+    Http::fake([
+        'portal.einundzwanzig.space/api/user' => Http::response(['id' => 7, 'name' => 'Satoshi']),
+    ]);
+
+    app(PortalAuth::class)->profile();
+
+    // Offline: the connection fails, but the cached profile is returned.
+    Http::fake(fn () => throw new ConnectionException('offline'));
+
+    expect(app(PortalAuth::class)->profile())->toMatchArray(['id' => 7, 'name' => 'Satoshi']);
+});
+
+it('revokes the token at the portal and deletes it locally on logout', function () {
+    SecureStorage::shouldReceive('get')->with('portal_api_token')->andReturn('12|secrettoken');
+    SecureStorage::shouldReceive('delete')->once()->with('portal_api_token')->andReturnTrue();
+    Cache::put('portal_profile', ['id' => 7]);
+    Http::fake([
+        'portal.einundzwanzig.space/api/mobile/token' => Http::response(['status' => 'OK']),
+    ]);
+
+    app(PortalAuth::class)->logout();
+
+    Http::assertSent(fn ($request) => $request->method() === 'DELETE'
+        && $request->url() === 'https://portal.einundzwanzig.space/api/mobile/token'
+        && $request->hasHeader('Authorization', 'Bearer 12|secrettoken'));
+    expect(Cache::has('portal_profile'))->toBeFalse();
+});
+
+it('still logs out locally when the portal is unreachable', function () {
+    SecureStorage::shouldReceive('get')->with('portal_api_token')->andReturn('12|secrettoken');
+    SecureStorage::shouldReceive('delete')->once()->with('portal_api_token')->andReturnTrue();
+    Http::fake(fn () => throw new ConnectionException('offline'));
+
+    app(PortalAuth::class)->logout();
+});
+
+it('skips the revoke call when no token is stored', function () {
+    SecureStorage::shouldReceive('get')->with('portal_api_token')->andReturnNull();
+    SecureStorage::shouldReceive('delete')->once()->with('portal_api_token')->andReturnTrue();
+    Http::fake();
+
+    app(PortalAuth::class)->logout();
+
+    Http::assertNothingSent();
 });

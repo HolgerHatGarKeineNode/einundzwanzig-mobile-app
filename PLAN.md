@@ -54,13 +54,13 @@ Arbeitsverzeichnis: `/home/user/Code/einundzwanzig-app` (eigener Branch, z. B. `
 
 Arbeitsverzeichnis: dieses Projekt.
 
-- [ ] 2.1 NativePHP-Plugins registrieren (`browser`, `dialog`, `network`, `share`) — laut Memory installiert, aber nicht registriert. Skill `nativephp-mobile` aktivieren und Registrierungsweg prüfen.
-- [ ] 2.2 Deep-Link-Schema `einundzwanzig://` in NativePHP konfigurieren (`config/nativephp.php` / `.env` `NATIVEPHP_DEEPLINK_SCHEME`); Handler für `einundzwanzig://auth?token=...` bauen.
-- [ ] 2.2b SecureStorage-Premium-Plugin installieren (`composer require` aus dem Marketplace `https://plugins.nativephp.com`, vom User am 2026-06-11 gekauft) und registrieren: `php artisan native:plugin:register <vendor/paket>` + Rebuild.
-- [ ] 2.3 `AuthService` (o. ä.): Token aus Deep Link entgegennehmen → **SecureStorage** (NativePHP) speichern, nie in DB/Session/Logs. Logout = Token lokal löschen + `DELETE`-Call ans Portal (Token revoken).
-- [ ] 2.4 Login-Screen in der App: nur ein Button „Mit Einundzwanzig Portal anmelden" → öffnet `https://portal.einundzwanzig.space/auth/mobile?redirect_uri=einundzwanzig://auth&device_name={gerät}` im In-App-Browser (browser-Plugin). Lokale `.env`-Konfig `PORTAL_URL` für Dev gegen lokales Portal.
-- [ ] 2.5 Auth-Middleware/State in der App: eingeloggt vs. Gast; nach Login `GET /api/user` ziehen und Profil lokal cachen. Gast-Modus erlaubt die öffentlichen Read-Inhalte trotzdem (API ist public).
-- [ ] 2.6 Feature-Tests (Pest): Deep-Link-Token-Verarbeitung, AuthService, Logout. HTTP gegen Portal mit Saloon::fake() mocken.
+- [x] 2.1 NativePHP-Plugins registrieren — war bereits erledigt (Phase-1-Arbeit): alle 5 Plugins (`browser`, `dialog`, `network`, `secure-storage`, `share`) sind via Composer installiert UND in `app/Providers/NativeServiceProvider.php` registriert (`php artisan native:plugin:list` bestätigt 11 Bridge Functions). Memory war veraltet.
+- [x] 2.2 Deep-Link-Schema `einundzwanzig://` in NativePHP konfigurieren (`config/nativephp.php` / `.env` `NATIVEPHP_DEEPLINK_SCHEME`); Handler für `einundzwanzig://auth?token=...` bauen.
+- [x] 2.2b SecureStorage-Premium-Plugin: war bereits installiert (`nativephp/mobile-secure-storage` 1.0.1) und registriert — in Phase 1 nachweislich im Einsatz (Token-Speicherung E2E auf dem Pixel 8 verifiziert).
+- [x] 2.3 `App\Services\PortalAuth`: Token aus Deep Link → SecureStorage (existierte aus Phase 1). **Neu (2026-06-12):** `logout()` revoked den Token zusätzlich am Portal (`DELETE /api/mobile/token`, Portal-Commit `f9b3428`, auth:sanctum, löscht nur den anfragenden Token) — best effort, Offline-Logout löscht trotzdem lokal. Connect-Komponente nutzt `logout()` statt nur `forgetToken()`.
+- [x] 2.4 Login-Screen: existiert als `livewire/portal/connect` auf Home — zwei Buttons („Mit Nostr anmelden" / „Mit Lightning anmelden", Entscheidung 1.14 ersetzt den Ein-Button-Plan). `PORTAL_URL`-Env via `config/services.php → services.portal.url` vorhanden.
+- [x] 2.5 Auth-State: `PortalAuth` ist die zentrale State-Quelle (`hasToken()`/`profile()`), Connect-Komponente rendert verbunden vs. Gast; Gast-Modus bleibt voll nutzbar (öffentliche API). **Neu:** Profil wird nach erfolgreichem `GET /api/user` lokal gecacht (30 Tage TTL) und offline aus dem Cache serviert; 401 verwirft Token + Cache. Eigene Middleware unnötig — es gibt keine geschützten App-Routen in v1.
+- [x] 2.6 Feature-Tests: `tests/Feature/PortalAuthTest.php` (16 Tests: Deep-Link/App-Link-Callback, Signed-Event-Exchange, Login-Buttons, Profil-Fetch/-Cache/-Offline, Logout mit/ohne Netz). HTTP via `Http::fake()` (Saloon kommt erst in Phase 3). Larastan + Pint grün, 62 Tests gesamt.
 
 ## Phase 3 — App: Saloon API-Client + DTOs
 

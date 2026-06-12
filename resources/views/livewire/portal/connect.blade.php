@@ -7,7 +7,7 @@ use Native\Mobile\Facades\Browser;
 new class extends Component {
     public bool $connected = false;
 
-    /** @var array{id: int, name: string, email: string|null, nostr: string|null, is_lecturer: bool, is_leader: bool, avatar: string|null}|null */
+    /** @var array<string, mixed>|null */
     public ?array $profile = null;
 
     public function mount(PortalAuth $portalAuth): void
@@ -43,7 +43,7 @@ new class extends Component {
 
     public function disconnect(PortalAuth $portalAuth): void
     {
-        $portalAuth->forgetToken();
+        $portalAuth->logout();
         $this->connected = false;
         $this->profile = null;
     }
