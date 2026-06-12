@@ -10,7 +10,9 @@ use Saloon\Http\Request;
 
 /**
  * GET /api/courses — öffentliche Kurs-Liste (id, name, image).
- * Ohne selected begrenzt das Portal auf 10 Einträge.
+ * Ohne selected begrenzt das Portal auf 10 Einträge; mit dem
+ * Presence-Flag withDetails entfällt das Limit und jeder Kurs enthält
+ * zusätzlich description, lecturer und next_event.
  */
 class GetCoursesRequest extends Request
 {
@@ -26,6 +28,7 @@ class GetCoursesRequest extends Request
         private readonly ?string $search = null,
         private readonly ?int $userId = null,
         private readonly array $selected = [],
+        private readonly bool $withDetails = false,
     ) {}
 
     public function resolveEndpoint(): string
@@ -42,6 +45,7 @@ class GetCoursesRequest extends Request
             'search' => $this->search,
             'user_id' => $this->userId,
             'selected' => $this->selected !== [] ? $this->selected : null,
+            'withDetails' => $this->withDetails ? '1' : null,
         ]);
     }
 

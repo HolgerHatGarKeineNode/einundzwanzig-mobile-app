@@ -1,7 +1,10 @@
 <?php
 
+use App\Data\Portal\CourseData;
+use App\Data\Portal\CourseDetailData;
 use App\Data\Portal\CourseEventData;
 use App\Data\Portal\EventMeetupData;
+use App\Data\Portal\LecturerDetailData;
 use App\Data\Portal\MapMeetupData;
 use App\Data\Portal\MeetupData;
 use App\Data\Portal\MeetupEventData;
@@ -10,7 +13,9 @@ use App\Data\Portal\UserProfileData;
 use App\Http\Integrations\Portal\PortalConnector;
 use App\Http\Integrations\Portal\Requests\GetCitiesRequest;
 use App\Http\Integrations\Portal\Requests\GetCountriesRequest;
+use App\Http\Integrations\Portal\Requests\GetCourseRequest;
 use App\Http\Integrations\Portal\Requests\GetCoursesRequest;
+use App\Http\Integrations\Portal\Requests\GetLecturerRequest;
 use App\Http\Integrations\Portal\Requests\GetMapMeetupsRequest;
 use App\Http\Integrations\Portal\Requests\GetMeetupEventsRequest;
 use App\Http\Integrations\Portal\Requests\GetMyCourseEventsRequest;
@@ -271,8 +276,88 @@ it('returns empty results for my-data without a portal connection', function () 
 
     expect($api->myMeetups())->toBeEmpty()
         ->and($api->myCourseEvents())->toBeEmpty()
+        ->and($api->myCourses())->toBeEmpty()
         ->and($api->memberMeetups())->toBeEmpty()
         ->and($api->user())->toBeNull();
+
+    MockClient::global()->assertNothingSent();
+});
+
+it('maps detailed courses and sends the withDetails flag', function () {
+    withoutPortalToken();
+    MockClient::global([GetCoursesRequest::class => MockResponse::make([detailedCourseFixture()])]);
+
+    $course = portalApi()->courses(withDetails: true)->first();
+
+    expect($course)->toBeInstanceOf(CourseData::class)
+        ->and($course->nextEvent()?->format('Y-m-d H:i'))->toBe('2026-07-01 18:00')
+        ->and($course->lecturerOrNull()?->name)->toBe('Toni Stack')
+        ->and($course->descriptionHtml())->toContain('<strong>Bitcoin</strong>');
+
+    MockClient::global()->assertSent(fn (Request $request, Response $response): bool => $response->getPendingRequest()->query()->get('withDetails') === '1');
+});
+
+it('maps the course detail including events with venue and city', function () {
+    withoutPortalToken();
+    MockClient::global([GetCourseRequest::class => MockResponse::make(courseDetailFixture())]);
+
+    $course = portalApi()->course(5);
+
+    expect($course)->toBeInstanceOf(CourseDetailData::class)
+        ->and($course->portalLink)->toBe('https://portal.einundzwanzig.space/de/course/5')
+        ->and($course->lecturer?->subtitleOrNull())->toBe('Bitcoin-Educator')
+        ->and($course->events)->toHaveCount(1)
+        ->and($course->events[0])->toBeInstanceOf(CourseEventData::class)
+        ->and($course->events[0]->locationLabel())->toBe('Volkshochschule · Regensburg');
+
+    MockClient::global()->assertSent(fn (Request $request, Response $response): bool => str_ends_with(
+        (string) $response->getPendingRequest()->getUri(),
+        '/api/courses/5',
+    ));
+});
+
+it('returns null for an unknown course without a stale copy', function () {
+    withoutPortalToken();
+    MockClient::global([GetCourseRequest::class => MockResponse::make(['message' => 'Not Found'], 404)]);
+
+    expect(portalApi()->course(999))->toBeNull();
+});
+
+it('maps the lecturer profile with courses and social links', function () {
+    withoutPortalToken();
+    MockClient::global([GetLecturerRequest::class => MockResponse::make(lecturerDetailFixture())]);
+
+    $lecturer = portalApi()->lecturer(3);
+
+    expect($lecturer)->toBeInstanceOf(LecturerDetailData::class)
+        ->and($lecturer->introHtml())->toContain('<strong>Bitcoin</strong>')
+        ->and($lecturer->courses[0])->toBeInstanceOf(CourseData::class)
+        ->and($lecturer->courses[0]->nextEvent()?->format('Y-m-d'))->toBe('2026-07-01')
+        ->and($lecturer->socialLinks())->toBe([
+            'Website' => 'https://tonistack.example',
+            'X (Twitter)' => 'https://x.com/tonistack',
+            'Nostr' => 'https://njump.me/npub1tonistack',
+        ]);
+});
+
+it('loads my courses via the cached profile id', function () {
+    withPortalToken();
+    withCachedPortalProfile(['is_lecturer' => true]);
+    MockClient::global([GetCoursesRequest::class => MockResponse::make([detailedCourseFixture()])]);
+
+    $courses = portalApi()->myCourses();
+
+    expect($courses)->toHaveCount(1);
+
+    MockClient::global()->assertSent(fn (Request $request, Response $response): bool => $response->getPendingRequest()->query()->get('user_id') === 7
+        && $response->getPendingRequest()->query()->get('withDetails') === '1');
+});
+
+it('returns no my-courses without a cached profile', function () {
+    withPortalToken();
+    MockClient::global([]);
+
+    expect(portalApi()->myCourses())->toBeEmpty();
 
     MockClient::global()->assertNothingSent();
 });

@@ -6,8 +6,10 @@ use App\Data\Portal\BtcMapCommunityData;
 use App\Data\Portal\CityData;
 use App\Data\Portal\CountryData;
 use App\Data\Portal\CourseData;
+use App\Data\Portal\CourseDetailData;
 use App\Data\Portal\CourseEventData;
 use App\Data\Portal\LecturerData;
+use App\Data\Portal\LecturerDetailData;
 use App\Data\Portal\MapMeetupData;
 use App\Data\Portal\MeetupData;
 use App\Data\Portal\MeetupEventData;
@@ -18,7 +20,9 @@ use App\Http\Integrations\Portal\PortalConnector;
 use App\Http\Integrations\Portal\Requests\GetBtcMapCommunitiesRequest;
 use App\Http\Integrations\Portal\Requests\GetCitiesRequest;
 use App\Http\Integrations\Portal\Requests\GetCountriesRequest;
+use App\Http\Integrations\Portal\Requests\GetCourseRequest;
 use App\Http\Integrations\Portal\Requests\GetCoursesRequest;
+use App\Http\Integrations\Portal\Requests\GetLecturerRequest;
 use App\Http\Integrations\Portal\Requests\GetLecturersRequest;
 use App\Http\Integrations\Portal\Requests\GetMapMeetupsRequest;
 use App\Http\Integrations\Portal\Requests\GetMeetupEventsRequest;
@@ -98,31 +102,64 @@ final class PortalApi
     /**
      * @return Collection<int, CourseData>
      */
-    public function courses(?string $search = null, ?int $userId = null): Collection
+    public function courses(?string $search = null, ?int $userId = null, bool $withDetails = false): Collection
     {
         $json = $this->remember(
             'courses',
-            [$search, $userId],
+            [$search, $userId, $withDetails],
             self::TTL_STATIC_SECONDS,
-            new GetCoursesRequest($search, $userId),
+            new GetCoursesRequest($search, $userId, withDetails: $withDetails),
         );
 
         return GetCoursesRequest::collectData($json ?? []);
     }
 
     /**
+     * Kurs-Detail inkl. kommender Kurs-Events; null wenn unbekannt oder
+     * offline ohne Stale-Kopie. Kürzere TTL als Stammdaten, weil die
+     * Termine im Detail aktuell bleiben sollen.
+     */
+    public function course(int $id): ?CourseDetailData
+    {
+        $json = $this->remember(
+            'course',
+            [$id],
+            self::TTL_EVENTS_SECONDS,
+            new GetCourseRequest($id),
+        );
+
+        return $json === null ? null : CourseDetailData::from($json);
+    }
+
+    /**
      * @return Collection<int, LecturerData>
      */
-    public function lecturers(?string $search = null): Collection
+    public function lecturers(?string $search = null, bool $withDetails = false): Collection
     {
         $json = $this->remember(
             'lecturers',
-            [$search],
+            [$search, $withDetails],
             self::TTL_STATIC_SECONDS,
-            new GetLecturersRequest($search),
+            new GetLecturersRequest($search, withDetails: $withDetails),
         );
 
         return GetLecturersRequest::collectData($json ?? []);
+    }
+
+    /**
+     * Referenten-Profil inkl. seiner Kurse; null wenn unbekannt oder
+     * offline ohne Stale-Kopie. Kürzere TTL wegen next_event der Kurse.
+     */
+    public function lecturer(int $id): ?LecturerDetailData
+    {
+        $json = $this->remember(
+            'lecturer',
+            [$id],
+            self::TTL_EVENTS_SECONDS,
+            new GetLecturerRequest($id),
+        );
+
+        return $json === null ? null : LecturerDetailData::from($json);
     }
 
     /**
@@ -205,6 +242,37 @@ final class PortalApi
         );
 
         return GetMyMeetupsRequest::collectData($json ?? []);
+    }
+
+    /**
+     * Vom Nutzer erstellte Kurse (read-only „Meine Kurse“ für Referenten),
+     * über den öffentlichen Endpunkt mit user_id-Filter. Ohne Token oder
+     * ohne lokal gecachtes Profil leer, ohne Request — die user-id stammt
+     * aus PortalAuth::cachedProfile(), damit hier kein zweiter
+     * Profil-HTTP-Call nötig ist.
+     *
+     * @return Collection<int, CourseData>
+     */
+    public function myCourses(): Collection
+    {
+        if (! $this->portalAuth->hasToken()) {
+            return new Collection;
+        }
+
+        $userId = $this->portalAuth->cachedProfile()['id'] ?? null;
+
+        if (! is_int($userId)) {
+            return new Collection;
+        }
+
+        $json = $this->remember(
+            'my-courses',
+            [$userId],
+            self::TTL_MINE_SECONDS,
+            new GetCoursesRequest(userId: $userId, withDetails: true),
+        );
+
+        return GetCoursesRequest::collectData($json ?? []);
     }
 
     /**

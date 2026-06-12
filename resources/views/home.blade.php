@@ -35,6 +35,16 @@
                 </span>
             </x-list-link-card>
 
+            <x-list-link-card href="{{ route('courses') }}">
+                <span class="flex size-11 shrink-0 items-center justify-center rounded-xl bg-brand-500/15 text-brand-600 dark:text-brand-400">
+                    <flux:icon name="academic-cap" class="size-6"/>
+                </span>
+                <span class="flex min-w-0 flex-col">
+                    <span class="font-semibold">{{ __('Kurse') }}</span>
+                    <flux:text class="truncate text-sm">{{ __('Bitcoin-Kurse und Referenten entdecken') }}</flux:text>
+                </span>
+            </x-list-link-card>
+
             <x-list-link-card href="{{ route('settings') }}">
                 <span class="flex size-11 shrink-0 items-center justify-center rounded-xl bg-brand-500/15 text-brand-600 dark:text-brand-400">
                     <flux:icon name="cog-6-tooth" class="size-6"/>

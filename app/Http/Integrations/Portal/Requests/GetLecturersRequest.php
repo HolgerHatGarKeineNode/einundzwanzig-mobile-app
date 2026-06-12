@@ -10,7 +10,9 @@ use Saloon\Http\Request;
 
 /**
  * GET /api/lecturers — öffentliche Referenten-Liste (id, name, image).
- * Ohne selected begrenzt das Portal auf 10 Einträge.
+ * Ohne selected begrenzt das Portal auf 10 Einträge; mit dem
+ * Presence-Flag withDetails entfällt das Limit und jeder Referent
+ * enthält zusätzlich subtitle und future_events_count.
  */
 class GetLecturersRequest extends Request
 {
@@ -25,6 +27,7 @@ class GetLecturersRequest extends Request
     public function __construct(
         private readonly ?string $search = null,
         private readonly array $selected = [],
+        private readonly bool $withDetails = false,
     ) {}
 
     public function resolveEndpoint(): string
@@ -40,6 +43,7 @@ class GetLecturersRequest extends Request
         return array_filter([
             'search' => $this->search,
             'selected' => $this->selected !== [] ? $this->selected : null,
+            'withDetails' => $this->withDetails ? '1' : null,
         ]);
     }
 

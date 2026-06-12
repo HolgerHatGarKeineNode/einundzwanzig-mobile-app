@@ -81,15 +81,15 @@ Arbeitsverzeichnis: dieses Projekt.
 
 ## Phase 5 — App: Modul Kurse & Referenten
 
-- [ ] 5.1 Kurs-Liste + Kurs-Detail (inkl. kommender Kurs-Events).
-- [ ] 5.2 Referenten-Liste + Profil (Avatar, Nostr, Kurse des Referenten).
-- [ ] 5.3 Eingeloggt als Lecturer: „Meine Kurse" read-only Übersicht.
-- [ ] 5.4 Tests wie in Phase 4.
+- [x] 5.1 Kurs-Liste + Kurs-Detail (inkl. kommender Kurs-Events). Brauchte Portal-Erweiterung (⚠️ unkommittiert, Commit + Deploy durch User): `GET /api/courses/{course}` show war leer → implementiert (description, Logo, lecturer, kommende Events inkl. Venue/Stadt/Land, portalLink); `GET /api/courses?withDetails` (Presence-Flag-Konvention wie withIntro) hebt das 10er-Picker-Limit auf und liefert description/lecturer/next_event mit. App: `pages/courses/⚡index|⚡show`, Routen `/courses` + `/courses/{id}`; Bottom-Nav „Kurse"-Tab (grid-cols-5) + Home-Karte.
+- [x] 5.2 Referenten-Liste + Profil: Portal `GET /api/lecturers?withDetails` (subtitle, future_events_count) + neue öffentliche Route `GET /api/lecturers/{lecturer}` (Avatar, subtitle, intro/description, nostr/website/twitter/lightning, Kurse mit next_event). App: Referenten als Tab auf der Kurse-Seite, Profil `pages/lecturers/⚡show` (`/lecturers/{id}`), Links via openLink (njump für Nostr).
+- [x] 5.3 „Meine Kurse"-Tab (nur sichtbar bei Token + `is_lecturer` im gecachten Profil): `PortalApi::myCourses()` nutzt den öffentlichen Endpunkt mit `user_id` aus `PortalAuth::cachedProfile()` (kein zweiter Profil-HTTP-Call), TTL 15 min.
+- [x] 5.4 Tests: Portal `tests/Feature/Api/CourseLecturerReadApiTest.php` (8 Tests: Limits, withDetails, show-Payloads, 404). App: 7 neue PortalApiTest-Fälle (withDetails-Query, Detail-Mapping inkl. „Venue · Stadt", myCourses-Guards, 404→null), `CoursesPageTest` (10), `LecturersPageTest` (4), Fixtures in tests/Pest.php. Gesamt: App 111 Tests grün, Larastan (`--memory-limit=1G`) + Pint sauber, `yarn run build` ok; Portal: neue + bestehende API-Tests (27) grün, Pint sauber.
 
 ## Phase 6 — App: Modul Orte & Karte
 
-- [ ] 6.1 Kartenlösung wählen (Leaflet + OSM-Tiles im WebView ist naheliegend; Entscheidung dokumentieren).
-- [ ] 6.2 Karte mit Meetups (`/api/meetups` Map-Format) und BTC-Map-Communities; Marker → Meetup-Detail.
+- [ ] 6.1 Kartenlösung wählen (Leaflet ist naheliegend; Entscheidung dokumentieren).
+- [ ] 6.2 Karte mit Meetups (`/api/meetups` Map-Format); Marker → Meetup-Detail.
 - [ ] 6.3 Städte-/Venue-Verzeichnis als Liste (Cities, Venues).
 - [ ] 6.4 Tests.
 
@@ -122,6 +122,7 @@ Arbeitsverzeichnis: dieses Projekt.
 
 ## Entscheidungs-Log
 
+- 2026-06-12: **Phase 5 umgesetzt** (Kurse & Referenten). Entscheidungen/Erkenntnisse: Die öffentlichen Index-Endpunkte sind Picker (id/name/image, Limit 10) → Erweiterung per **opt-in `withDetails`-Presence-Flag** (abwärtskompatibel, Konvention wie `withIntro`/`withLogos`) statt neuer Endpunkte; Kurs-/Referenten-Detail als echte show-Routen. ⚠️ **Livewire-SFC-Stolperfalle:** der Spaceship-Operator `<=>` im PHP-Block einer ⚡-Page bricht den SFC-Compiler (ParseError im kompilierten Klassen-Cache) → Mehrfach-Sortierung als `sortBy(fn (): array => [...])` mit Array-Keys schreiben. Kurs-Events der Detail-Antwort recyceln `CourseEventData` (Portal liefert course_id/venue_id mit; created_* haben jetzt null-Defaults); `CourseEventData::locationLabel()` rendert „Venue · Stadt". Lecturer-Profil hat keine Portal-Webseite → kein Teilen-Button dort, Kurs-Detail teilt seinen `portalLink` (Landingpage mit Default-Country `config('app.domain_country')`). Portal-Änderungen liegen **unkommittiert** im Schwesterprojekt (master).
 - 2026-06-12: **Simplify-Pass nach Phase 4:** Wiederverwendbare Bausteine für Phase 5/6: Blade-Komponenten `x-list-link-card` (Navigations-Karte mit Chevron, auch auf Home), `x-empty-state` (Icon+Heading+Slot, `min-height`-Prop), `x-meetup-avatar` (Logo-Fallback); Basisklasse `App\Livewire\PortalPage` mit `openLink()` (http(s)-Whitelist → `Browser::open`) für alle Modul-SFCs — als Basisklasse statt Trait, weil PHPStan Traits ohne analysierte Nutzer als unused meldet (SFC-Views liegen außerhalb der phpstan-paths). `MapMeetupData::socialLinks()` liefert die Link-Liste (Label ⇒ URL) jetzt im DTO; `slug()` ist memoisiert.
 - 2026-06-12: **Phase 4 umgesetzt** (Meetups & Termine). Entscheidungen: Markdown aus dem Portal (intro/description) wird mit `html_input=strip` + Tag-Allowlist gerendert; **Anker-Tags werden zu Text gestrippt**, weil Links sonst die WebView ohne Zurück-Navigation kapern (saubere Lösung = JS-Bridge zu `Browser::open`, Phase-7-Kandidat). Statt Tailwind-Typography-Plugin (nicht installiert, Dependency) eigene `.markdown`-Styles in app.css. `APP_LOCALE=de` in .env gesetzt, damit `translatedFormat()` deutsche Monats-/Wochentagsnamen liefert (volle l10n bleibt 7.4). Event-Identität: API liefert keine Event-IDs in `/api/meetup-events` → Modal-Auswahl über Index der sortierten Collection.
 - 2026-06-12: **Phase 3 umgesetzt** (Saloon-Connector, 12 Requests, 13 DTOs, PortalApi-Caching, 13 Tests). Erkenntnisse: `/api/my-courses` existiert nicht (Ersatz: `/api/course-events` + `/api/courses?user_id`); `/api/meetup` ist faktisch session-only (kein `auth:sanctum`) → Offene Frage für Phase 4.5; `/api/meetup-events` liefert literale Punkt-Schlüssel (`meetup.name`); Datumsformate der API sind gemischt (ISO mit Mikrosekunden, `Y-m-d H:i`) → `date_format`-Array in `config/data.php`. Cache-Design: rohes JSON zweistufig (TTL + Stale forever), kein DTO-Serialisieren in den Cache.

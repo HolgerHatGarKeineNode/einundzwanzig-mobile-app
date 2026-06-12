@@ -44,6 +44,8 @@ expect()->extend('toBeOne', function () {
 |
 */
 
+use App\Services\PortalAuth;
+use Illuminate\Support\Facades\Cache;
 use Native\Mobile\Facades\SecureStorage;
 
 function withPortalToken(string $token = '12|secrettoken'): void
@@ -154,4 +156,136 @@ function myMeetupFixture(array $overrides = []): array
         'created_at' => '2022-01-01T00:00:00.000000Z',
         'updated_at' => '2026-06-01T00:00:00.000000Z',
     ], $overrides);
+}
+
+/**
+ * Kurs aus GET /api/courses?withDetails (Liste inkl. lecturer/next_event).
+ *
+ * @param  array<string, mixed>  $overrides
+ * @return array<string, mixed>
+ */
+function detailedCourseFixture(array $overrides = []): array
+{
+    return array_merge([
+        'id' => 5,
+        'name' => 'Bitcoin, Blockchain und Geld',
+        'image' => 'https://portal.einundzwanzig.space/storage/5/conversions/logo-thumb.jpg',
+        'description' => 'Grundlagen zu **Bitcoin** und Geld.',
+        'next_event' => '2026-07-01 18:00:00',
+        'lecturer' => [
+            'id' => 3,
+            'name' => 'Toni Stack',
+            'image' => 'https://portal.einundzwanzig.space/storage/3/conversions/avatar-thumb.jpg',
+        ],
+    ], $overrides);
+}
+
+/**
+ * Kurs-Detail aus GET /api/courses/{id}.
+ *
+ * @param  array<string, mixed>  $overrides
+ * @return array<string, mixed>
+ */
+function courseDetailFixture(array $overrides = []): array
+{
+    return array_merge([
+        'id' => 5,
+        'name' => 'Bitcoin, Blockchain und Geld',
+        'description' => 'Grundlagen zu **Bitcoin** und Geld.',
+        'image' => 'https://portal.einundzwanzig.space/storage/5/logo.jpg',
+        'portalLink' => 'https://portal.einundzwanzig.space/de/course/5',
+        'lecturer' => [
+            'id' => 3,
+            'name' => 'Toni Stack',
+            'subtitle' => 'Bitcoin-Educator',
+            'image' => 'https://portal.einundzwanzig.space/storage/3/conversions/avatar-thumb.jpg',
+        ],
+        'events' => [
+            [
+                'id' => 9,
+                'course_id' => 5,
+                'venue_id' => 3,
+                'from' => '2026-07-01T18:00:00.000000Z',
+                'to' => '2026-07-01T20:00:00.000000Z',
+                'link' => 'https://example.com/kurs-anmeldung',
+                'venue' => [
+                    'id' => 3,
+                    'name' => 'Volkshochschule',
+                    'city' => [
+                        'id' => 80,
+                        'name' => 'Regensburg',
+                        'country_id' => 1,
+                        'country' => ['id' => 1, 'name' => 'Germany', 'code' => 'de'],
+                    ],
+                ],
+            ],
+        ],
+    ], $overrides);
+}
+
+/**
+ * Referent aus GET /api/lecturers?withDetails (Liste inkl. subtitle/Zähler).
+ *
+ * @param  array<string, mixed>  $overrides
+ * @return array<string, mixed>
+ */
+function detailedLecturerFixture(array $overrides = []): array
+{
+    return array_merge([
+        'id' => 3,
+        'name' => 'Toni Stack',
+        'subtitle' => 'Bitcoin-Educator',
+        'image' => 'https://portal.einundzwanzig.space/storage/3/conversions/avatar-thumb.jpg',
+        'future_events_count' => 2,
+    ], $overrides);
+}
+
+/**
+ * Referenten-Profil aus GET /api/lecturers/{id}.
+ *
+ * @param  array<string, mixed>  $overrides
+ * @return array<string, mixed>
+ */
+function lecturerDetailFixture(array $overrides = []): array
+{
+    return array_merge([
+        'id' => 3,
+        'name' => 'Toni Stack',
+        'subtitle' => 'Bitcoin-Educator',
+        'intro' => 'Ich halte Kurse zu **Bitcoin**.',
+        'description' => 'Seit 2017 unterwegs.',
+        'image' => 'https://portal.einundzwanzig.space/storage/3/avatar.jpg',
+        'active' => true,
+        'nostr' => 'npub1tonistack',
+        'website' => 'https://tonistack.example',
+        'twitter_username' => 'tonistack',
+        'lightning_address' => 'toni@stack.example',
+        'courses' => [
+            [
+                'id' => 5,
+                'name' => 'Bitcoin, Blockchain und Geld',
+                'image' => 'https://portal.einundzwanzig.space/storage/5/conversions/logo-thumb.jpg',
+                'next_event' => '2026-07-01 18:00:00',
+            ],
+        ],
+    ], $overrides);
+}
+
+/**
+ * Profil-Cache von PortalAuth füllen, damit Seiten id/is_lecturer ohne
+ * HTTP-Call lesen können.
+ *
+ * @param  array<string, mixed>  $overrides
+ */
+function withCachedPortalProfile(array $overrides = []): void
+{
+    Cache::put(PortalAuth::PROFILE_CACHE_KEY, array_merge([
+        'id' => 7,
+        'name' => 'Satoshi',
+        'email' => 'satoshi@example.com',
+        'nostr' => 'npub1xyz',
+        'is_lecturer' => false,
+        'is_leader' => false,
+        'avatar' => null,
+    ], $overrides));
 }

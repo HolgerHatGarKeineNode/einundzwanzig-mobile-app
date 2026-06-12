@@ -19,17 +19,23 @@ trait RendersMarkdown
         'blockquote', 'code', 'pre', 'hr',
     ];
 
+    /**
+     * Pro Eingabe memoisiert, weil Blade-Views die *Html()-Methoden
+     * mehrfach pro Render aufrufen (Sichtbarkeits-@if + Ausgabe).
+     *
+     * @var array<string, string>
+     */
+    private array $memoizedMarkdownHtml = [];
+
     protected function markdownToHtml(?string $markdown): ?string
     {
         if (blank($markdown)) {
             return null;
         }
 
-        $html = Str::markdown($markdown, [
+        return $this->memoizedMarkdownHtml[$markdown] ??= strip_tags(Str::markdown($markdown, [
             'html_input' => 'strip',
             'allow_unsafe_links' => false,
-        ]);
-
-        return strip_tags($html, self::ALLOWED_TAGS);
+        ]), self::ALLOWED_TAGS);
     }
 }

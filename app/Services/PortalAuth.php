@@ -15,7 +15,8 @@ final class PortalAuth
 {
     private const TOKEN_KEY = 'portal_api_token';
 
-    private const PROFILE_CACHE_KEY = 'portal_profile';
+    /** Public, damit Tests den Profil-Cache ohne HTTP-Call befüllen können. */
+    public const PROFILE_CACHE_KEY = 'portal_profile';
 
     private const PROFILE_CACHE_TTL_DAYS = 30;
 
