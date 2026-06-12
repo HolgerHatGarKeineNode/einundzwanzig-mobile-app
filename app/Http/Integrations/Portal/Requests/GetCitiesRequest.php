@@ -10,7 +10,9 @@ use Saloon\Http\Request;
 
 /**
  * GET /api/cities — öffentliche Städte-Liste inkl. Land.
- * Ohne selected begrenzt das Portal auf 10 Einträge.
+ * Ohne selected/withDetails begrenzt das Portal auf 10 Einträge;
+ * das Presence-Flag withDetails hebt das Limit auf und liefert
+ * zusätzlich country.code und die Flaggen-URL.
  */
 class GetCitiesRequest extends Request
 {
@@ -25,6 +27,7 @@ class GetCitiesRequest extends Request
     public function __construct(
         private readonly ?string $search = null,
         private readonly array $selected = [],
+        private readonly bool $withDetails = false,
     ) {}
 
     public function resolveEndpoint(): string
@@ -40,6 +43,7 @@ class GetCitiesRequest extends Request
         return array_filter([
             'search' => $this->search,
             'selected' => $this->selected !== [] ? $this->selected : null,
+            'withDetails' => $this->withDetails ? '1' : null,
         ]);
     }
 

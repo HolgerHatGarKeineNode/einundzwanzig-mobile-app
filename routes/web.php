@@ -19,6 +19,7 @@ Route::get('signed/{payload}', PortalSignedEventController::class)
 Route::livewire('meetups', 'pages::meetups.index')->name('meetups');
 Route::livewire('meetups/{slug}', 'pages::meetups.show')->name('meetups.show');
 Route::livewire('events', 'pages::events.index')->name('events');
+Route::livewire('map', 'pages::map.index')->name('map');
 Route::livewire('courses', 'pages::courses.index')->name('courses');
 Route::livewire('courses/{id}', 'pages::courses.show')->whereNumber('id')->name('courses.show');
 Route::livewire('lecturers/{id}', 'pages::lecturers.show')->whereNumber('id')->name('lecturers.show');

@@ -142,6 +142,43 @@
     font-size: var(--text-sm);
 }
 
+/* Leaflet-Karte (Orte & Karte): Controls/Popups an das App-Theme angleichen */
+.leaflet-container {
+    font-family: var(--font-sans);
+}
+
+.map-popup {
+    display: flex;
+    flex-direction: column;
+    gap: --spacing(1);
+}
+
+.map-popup a {
+    color: var(--color-brand-600);
+    font-weight: var(--font-weight-semibold);
+}
+
+.dark .map-popup a {
+    color: var(--color-brand-400);
+}
+
+.dark .leaflet-popup-content-wrapper,
+.dark .leaflet-popup-tip {
+    background: var(--color-zinc-900);
+    color: var(--color-zinc-100);
+}
+
+.dark .leaflet-bar a {
+    background: var(--color-zinc-900);
+    border-bottom-color: var(--color-zinc-700);
+    color: var(--color-zinc-100);
+}
+
+.dark .leaflet-control-attribution {
+    background: rgb(0 0 0 / 0.6);
+    color: var(--color-zinc-300);
+}
+
 [data-flux-field]:not(ui-radio, ui-checkbox) {
     @apply grid gap-2;
 }

@@ -10,7 +10,8 @@ use Saloon\Http\Request;
 
 /**
  * GET /api/venues — öffentliche Veranstaltungsorte inkl. Stadt/Land,
- * Flaggen-URL und Beschreibung. Ohne selected begrenzt auf 10 Einträge.
+ * Flaggen-URL und Beschreibung. Ohne selected/withDetails begrenzt auf
+ * 10 Einträge; das Presence-Flag withDetails hebt das Limit auf.
  */
 class GetVenuesRequest extends Request
 {
@@ -25,6 +26,7 @@ class GetVenuesRequest extends Request
     public function __construct(
         private readonly ?string $search = null,
         private readonly array $selected = [],
+        private readonly bool $withDetails = false,
     ) {}
 
     public function resolveEndpoint(): string
@@ -40,6 +42,7 @@ class GetVenuesRequest extends Request
         return array_filter([
             'search' => $this->search,
             'selected' => $this->selected !== [] ? $this->selected : null,
+            'withDetails' => $this->withDetails ? '1' : null,
         ]);
     }
 

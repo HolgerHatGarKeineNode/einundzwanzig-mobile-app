@@ -165,13 +165,13 @@ final class PortalApi
     /**
      * @return Collection<int, CityData>
      */
-    public function cities(?string $search = null): Collection
+    public function cities(?string $search = null, bool $withDetails = false): Collection
     {
         $json = $this->remember(
             'cities',
-            [$search],
+            [$search, $withDetails],
             self::TTL_STATIC_SECONDS,
-            new GetCitiesRequest($search),
+            new GetCitiesRequest($search, withDetails: $withDetails),
         );
 
         return GetCitiesRequest::collectData($json ?? []);
@@ -180,13 +180,13 @@ final class PortalApi
     /**
      * @return Collection<int, VenueData>
      */
-    public function venues(?string $search = null): Collection
+    public function venues(?string $search = null, bool $withDetails = false): Collection
     {
         $json = $this->remember(
             'venues',
-            [$search],
+            [$search, $withDetails],
             self::TTL_STATIC_SECONDS,
-            new GetVenuesRequest($search),
+            new GetVenuesRequest($search, withDetails: $withDetails),
         );
 
         return GetVenuesRequest::collectData($json ?? []);

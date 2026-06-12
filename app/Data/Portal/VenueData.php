@@ -20,4 +20,19 @@ final class VenueData extends Data
         public string|Optional $description,
         public CityData|Optional $city,
     ) {}
+
+    /**
+     * description („Stadt, Straße") ohne den hängenden Trenner, den das
+     * Portal bei leerer Straße liefert; null wenn nichts übrig bleibt.
+     */
+    public function locationLabel(): ?string
+    {
+        if (! is_string($this->description)) {
+            return null;
+        }
+
+        $label = trim($this->description, ' ,');
+
+        return $label === '' ? null : $label;
+    }
 }

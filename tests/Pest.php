@@ -272,6 +272,46 @@ function lecturerDetailFixture(array $overrides = []): array
 }
 
 /**
+ * Stadt aus GET /api/cities?withDetails (inkl. country.code und Flaggen-URL).
+ *
+ * @param  array<string, mixed>  $overrides
+ * @return array<string, mixed>
+ */
+function cityFixture(array $overrides = []): array
+{
+    return array_merge([
+        'id' => 80,
+        'name' => 'Regensburg',
+        'country_id' => 1,
+        'country' => ['id' => 1, 'name' => 'Germany', 'code' => 'de'],
+        'flag' => 'https://portal.einundzwanzig.space/vendor/blade-flags/country-de.svg',
+    ], $overrides);
+}
+
+/**
+ * Veranstaltungsort aus GET /api/venues (inkl. Stadt/Land, Flagge, Beschreibung).
+ *
+ * @param  array<string, mixed>  $overrides
+ * @return array<string, mixed>
+ */
+function venueFixture(array $overrides = []): array
+{
+    return array_merge([
+        'id' => 131,
+        'name' => 'AfueraFest 2025',
+        'city_id' => 80,
+        'flag' => 'https://portal.einundzwanzig.space/vendor/blade-flags/country-de.svg',
+        'description' => 'Regensburg, Hauptstraße 1',
+        'city' => [
+            'id' => 80,
+            'name' => 'Regensburg',
+            'country_id' => 1,
+            'country' => ['id' => 1, 'name' => 'Germany', 'code' => 'de'],
+        ],
+    ], $overrides);
+}
+
+/**
  * Profil-Cache von PortalAuth füllen, damit Seiten id/is_lecturer ohne
  * HTTP-Call lesen können.
  *

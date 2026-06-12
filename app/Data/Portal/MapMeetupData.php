@@ -10,13 +10,17 @@ use Spatie\LaravelData\Data;
  * Meetup im Karten-Format aus GET /api/meetups (MeetupMapController).
  * intro und logo sind nur bei den Presence-Flags withIntro/withLogos
  * gefüllt, sonst null. top/left/state stammen aus historischen
- * GitHub-Daten für die SVG-Karte der Website.
+ * GitHub-Daten für die SVG-Karte der Website; state ist dort je nach
+ * Meetup ein String ODER eine Liste von Regionen.
  */
 final class MapMeetupData extends Data
 {
     use HasPortalLink;
     use RendersMarkdown;
 
+    /**
+     * @param  string|list<string>|null  $state
+     */
     public function __construct(
         public string $name,
         public string $portalLink,
@@ -24,7 +28,7 @@ final class MapMeetupData extends Data
         public float|int|string|null $top,
         public float|int|string|null $left,
         public string $country,
-        public ?string $state,
+        public string|array|null $state,
         public string $city,
         public float $longitude,
         public float $latitude,

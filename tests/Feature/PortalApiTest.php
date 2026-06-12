@@ -87,16 +87,21 @@ function userFixture(): array
 
 it('maps the public map meetups to DTOs including the next event', function () {
     withoutPortalToken();
-    MockClient::global([GetMapMeetupsRequest::class => MockResponse::make([mapMeetupFixture()])]);
+    MockClient::global([GetMapMeetupsRequest::class => MockResponse::make([
+        mapMeetupFixture(),
+        // Historische GitHub-Daten liefern state je nach Meetup als Liste.
+        mapMeetupFixture(['name' => 'Einundzwanzig Schweiz', 'state' => ['Bern', 'Zürich']]),
+    ])]);
 
     $meetups = portalApi()->mapMeetups();
 
-    expect($meetups)->toHaveCount(1)
+    expect($meetups)->toHaveCount(2)
         ->and($meetups->first())->toBeInstanceOf(MapMeetupData::class)
         ->and($meetups->first()->longitude)->toBe(9.146998)
         ->and($meetups->first()->next_event)->toBeInstanceOf(NextEventData::class)
         ->and($meetups->first()->next_event->start->format('Y-m-d H:i'))->toBe('2026-06-19 16:30')
-        ->and($meetups->first()->next_event->attendees)->toBe(1);
+        ->and($meetups->first()->next_event->attendees)->toBe(1)
+        ->and($meetups->last()->state)->toBe(['Bern', 'Zürich']);
 });
 
 it('nests the dotted meetup keys of meetup events and filters by month', function () {
@@ -129,7 +134,7 @@ it('maps cities, venues and countries with their nested relations', function () 
                 'id' => 131,
                 'name' => 'AfueraFest 2025',
                 'city_id' => 80,
-                'flag' => 'https://portal.einundzwanzig.space/vendor/blade-country-flags/4x3-de.svg',
+                'flag' => 'https://portal.einundzwanzig.space/vendor/blade-flags/country-de.svg',
                 'description' => 'Regensburg, ',
                 'city' => [
                     'id' => 80,
@@ -140,7 +145,7 @@ it('maps cities, venues and countries with their nested relations', function () 
             ],
         ]),
         GetCountriesRequest::class => MockResponse::make([
-            ['id' => 22, 'name' => 'Afghanistan', 'code' => 'af', 'flag' => 'https://portal.einundzwanzig.space/vendor/blade-country-flags/4x3-af.svg'],
+            ['id' => 22, 'name' => 'Afghanistan', 'code' => 'af', 'flag' => 'https://portal.einundzwanzig.space/vendor/blade-flags/country-af.svg'],
         ]),
     ]);
 
@@ -148,7 +153,7 @@ it('maps cities, venues and countries with their nested relations', function () 
 
     expect($api->cities()->first()->country->name)->toBe('Germany')
         ->and($api->venues()->first()->city->country->code)->toBe('de')
-        ->and($api->countries()->first()->flag)->toContain('4x3-af.svg');
+        ->and($api->countries()->first()->flag)->toContain('country-af.svg');
 });
 
 it('sends the bearer token from the keystore on authenticated requests', function () {
@@ -294,6 +299,22 @@ it('maps detailed courses and sends the withDetails flag', function () {
         ->and($course->lecturerOrNull()?->name)->toBe('Toni Stack')
         ->and($course->descriptionHtml())->toContain('<strong>Bitcoin</strong>');
 
+    MockClient::global()->assertSent(fn (Request $request, Response $response): bool => $response->getPendingRequest()->query()->get('withDetails') === '1');
+});
+
+it('sends the withDetails flag for cities and venues and maps the flag url', function () {
+    withoutPortalToken();
+    MockClient::global([
+        GetCitiesRequest::class => MockResponse::make([cityFixture()]),
+        GetVenuesRequest::class => MockResponse::make([venueFixture()]),
+    ]);
+
+    $api = portalApi();
+
+    expect($api->cities(withDetails: true)->first()->flag)->toContain('country-de.svg')
+        ->and($api->venues(withDetails: true)->first()->description)->toBe('Regensburg, Hauptstraße 1');
+
+    MockClient::global()->assertSentCount(2);
     MockClient::global()->assertSent(fn (Request $request, Response $response): bool => $response->getPendingRequest()->query()->get('withDetails') === '1');
 });
 
