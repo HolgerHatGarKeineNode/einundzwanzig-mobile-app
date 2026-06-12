@@ -1,0 +1,78 @@
+<?php
+
+use App\Http\Integrations\Portal\Requests\GetMapMeetupsRequest;
+use App\Services\AppPreferences;
+use Livewire\Livewire;
+use Native\Mobile\Facades\Browser;
+use Saloon\Http\Faking\MockClient;
+use Saloon\Http\Faking\MockResponse;
+
+afterEach(fn () => MockClient::destroyGlobal());
+
+beforeEach(function () {
+    withoutPortalToken();
+    MockClient::global([
+        GetMapMeetupsRequest::class => MockResponse::make([]),
+    ]);
+});
+
+it('renders the account, settings and about sections', function () {
+    $this->get(route('profile'))
+        ->assertOk()
+        ->assertSee(__('Dein Portal-Konto'))
+        ->assertSee(__('Sprache'))
+        ->assertSee(__('Region'))
+        ->assertSee(__('Darstellung'))
+        ->assertSee(__('Version'))
+        ->assertSee(config('nativephp.version'))
+        ->assertSee(__('Einundzwanzig-Portal öffnen'));
+});
+
+it('loads the stored preferences', function () {
+    completeOnboarding(country: 'ch');
+
+    Livewire::test('pages::profile.index')
+        ->assertSet('locale', 'de')
+        ->assertSet('country', 'ch');
+});
+
+it('saves a changed region', function () {
+    Livewire::test('pages::profile.index')
+        ->set('country', 'at');
+
+    expect(app(AppPreferences::class)->country())->toBe('at');
+});
+
+it('reverts an unknown region to the stored one', function () {
+    completeOnboarding(country: 'de');
+
+    Livewire::test('pages::profile.index')
+        ->set('country', 'xx')
+        ->assertSet('country', 'de');
+
+    expect(app(AppPreferences::class)->country())->toBe('de');
+});
+
+it('reverts an unsupported language', function () {
+    Livewire::test('pages::profile.index')
+        ->set('locale', 'en')
+        ->assertSet('locale', 'de');
+
+    expect(app(AppPreferences::class)->locale())->toBe('de');
+});
+
+it('pulls the portal-connected flash so the toast fires only once', function () {
+    $this->withSession(['portal-connected' => true])
+        ->get(route('profile'))
+        ->assertOk()
+        ->assertSessionMissing('portal-connected');
+});
+
+it('opens the portal in the system browser', function () {
+    Browser::shouldReceive('open')
+        ->once()
+        ->with('https://portal.einundzwanzig.space');
+
+    Livewire::test('pages::profile.index')
+        ->call('openPortal');
+});

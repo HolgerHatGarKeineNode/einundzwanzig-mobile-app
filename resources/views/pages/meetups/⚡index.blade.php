@@ -2,15 +2,16 @@
 
 use App\Data\Portal\MapMeetupData;
 use App\Data\Portal\MeetupData;
+use App\Livewire\PortalPage;
+use App\Services\CountryOptions;
 use App\Services\PortalApi;
 use App\Services\PortalAuth;
 use Illuminate\Support\Collection;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Url;
-use Livewire\Component;
 
-new #[Layout('layouts::mobile', ['title' => 'Meetups', 'heading' => 'Meetups'])] class extends Component {
+new #[Layout('layouts::mobile', ['title' => 'Meetups', 'heading' => 'Meetups'])] class extends PortalPage {
     #[Url(as: 'q')]
     public string $search = '';
 
@@ -19,6 +20,11 @@ new #[Layout('layouts::mobile', ['title' => 'Meetups', 'heading' => 'Meetups'])]
 
     #[Url]
     public string $tab = 'alle';
+
+    public function mount(): void
+    {
+        $this->country = $this->defaultCountry();
+    }
 
     #[Computed]
     public function connected(): bool
@@ -36,8 +42,10 @@ new #[Layout('layouts::mobile', ['title' => 'Meetups', 'heading' => 'Meetups'])]
     {
         $search = mb_strtolower(trim($this->search));
 
+        $country = mb_strtolower($this->country);
+
         return $this->allMeetups()
-            ->filter(fn (MapMeetupData $meetup): bool => $this->country === '' || $meetup->country === $this->country)
+            ->filter(fn (MapMeetupData $meetup): bool => $country === '' || mb_strtolower($meetup->country) === $country)
             ->filter(fn (MapMeetupData $meetup): bool => $search === ''
                 || str_contains(mb_strtolower($meetup->name), $search)
                 || str_contains(mb_strtolower($meetup->city), $search))
@@ -48,12 +56,15 @@ new #[Layout('layouts::mobile', ['title' => 'Meetups', 'heading' => 'Meetups'])]
     /**
      * Ländercodes aller Meetups für den Filter.
      *
-     * @return Collection<int, string>
+     * @return list<string>
      */
     #[Computed]
-    public function countries(): Collection
+    public function countries(): array
     {
-        return $this->allMeetups()->pluck('country')->unique()->sort()->values();
+        return CountryOptions::filterCodes(
+            $this->allMeetups()->map(fn (MapMeetupData $meetup): string => $meetup->country),
+            $this->country,
+        );
     }
 
     /**
@@ -104,9 +115,9 @@ new #[Layout('layouts::mobile', ['title' => 'Meetups', 'heading' => 'Meetups'])]
                 clearable
             />
             <flux:select wire:model.live="country">
-                <flux:select.option value="">{{ __('Alle Länder') }}</flux:select.option>
+                <flux:select.option value="">🌍 {{ __('Alle Länder') }}</flux:select.option>
                 @foreach ($this->countries as $code)
-                    <flux:select.option value="{{ $code }}">{{ $code }}</flux:select.option>
+                    <flux:select.option value="{{ $code }}">{{ \App\Services\CountryOptions::flagEmoji($code) }} {{ strtoupper($code) }}</flux:select.option>
                 @endforeach
             </flux:select>
         </div>

@@ -51,6 +51,19 @@ it('filters meetups by search term and country', function () {
         ->assertDontSee('Einundzwanzig Wien');
 });
 
+it('applies the onboarding region as default country filter', function () {
+    completeOnboarding(country: 'at');
+    withoutPortalToken();
+    MockClient::global([
+        GetMapMeetupsRequest::class => MockResponse::make([mapMeetupFixture(), viennaMeetupFixture()]),
+    ]);
+
+    Livewire::test('pages::meetups.index')
+        ->assertSet('country', 'at')
+        ->assertSee('Einundzwanzig Wien')
+        ->assertDontSee('Einundzwanzig Aschaffenburg');
+});
+
 it('hides the my-meetups tab for guests', function () {
     withoutPortalToken();
     MockClient::global([

@@ -1,36 +1,41 @@
 <?php
 
+use App\Http\Integrations\Portal\Requests\GetMapMeetupsRequest;
 use App\Services\PortalAuth;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 use Native\Mobile\Facades\Browser;
 use Native\Mobile\Facades\SecureStorage;
+use Saloon\Http\Faking\MockClient;
+use Saloon\Http\Faking\MockResponse;
 
-it('stores the token from the deep link callback and redirects home', function () {
+afterEach(fn () => MockClient::destroyGlobal());
+
+it('stores the token from the deep link callback and redirects to the profile page', function () {
     SecureStorage::shouldReceive('set')
         ->once()
         ->with('portal_api_token', '12|secrettoken')
         ->andReturnTrue();
 
     $this->get('/auth?token='.urlencode('12|secrettoken'))
-        ->assertRedirect(route('home'));
+        ->assertRedirect(route('profile'));
 });
 
-it('redirects home without storing anything when the token is missing', function () {
+it('redirects to the profile page without storing anything when the token is missing', function () {
     SecureStorage::shouldReceive('set')->never();
 
-    $this->get('/auth')->assertRedirect(route('home'));
+    $this->get('/auth')->assertRedirect(route('profile'));
 });
 
-it('stores the token from the app-link handoff and redirects home', function () {
+it('stores the token from the app-link handoff and redirects to the profile page', function () {
     SecureStorage::shouldReceive('set')
         ->once()
         ->with('portal_api_token', '12|secrettoken')
         ->andReturnTrue();
 
     $this->get('/app/auth?token='.urlencode('12|secrettoken'))
-        ->assertRedirect(route('home'));
+        ->assertRedirect(route('profile'));
 });
 
 it('exchanges the signed event for a token when the signer callback opens the app', function () {
@@ -46,14 +51,14 @@ it('exchanges the signed event for a token when the signer callback opens the ap
         ->andReturnTrue();
 
     $this->get('/signed/'.$k1.'/'.rawurlencode(json_encode($event)))
-        ->assertRedirect(route('home'));
+        ->assertRedirect(route('profile'));
 
     Http::assertSent(fn ($request) => $request->url() === 'https://portal.einundzwanzig.space/api/mobile/token'
         && $request['k1'] === $k1
         && $request['event']['kind'] === 22242);
 });
 
-it('redirects home with an error flag when the token exchange fails', function () {
+it('redirects to the profile page with an error flag when the token exchange fails', function () {
     $k1 = str_repeat('b', 64);
 
     Http::fake([
@@ -62,14 +67,18 @@ it('redirects home with an error flag when the token exchange fails', function (
     SecureStorage::shouldReceive('set')->never();
 
     $this->get('/signed/'.$k1.'/'.rawurlencode(json_encode(['kind' => 22242])))
-        ->assertRedirect(route('home'))
+        ->assertRedirect(route('profile'))
         ->assertSessionHas('portal-connect-failed');
 });
 
-it('shows both login buttons on home when no token is stored', function () {
+it('shows both login buttons on the profile page when no token is stored', function () {
     // Without the native bridge SecureStorage::get() returns null,
     // so the component renders the guest state.
-    $this->get('/')
+    MockClient::global([
+        GetMapMeetupsRequest::class => MockResponse::make([]),
+    ]);
+
+    $this->get(route('profile'))
         ->assertOk()
         ->assertSee(__('Mit Nostr anmelden'))
         ->assertSee(__('Mit Lightning anmelden'));

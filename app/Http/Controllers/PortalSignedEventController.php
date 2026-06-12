@@ -22,10 +22,10 @@ final class PortalSignedEventController extends Controller
             $signedEvent = json_decode(ltrim(substr($payload, 64), '/'), true);
 
             if (is_array($signedEvent) && $portalAuth->exchangeSignedEvent($k1, $signedEvent)) {
-                return redirect()->route('home')->with('portal-connected', true);
+                return redirect()->route('profile')->with('portal-connected', true);
             }
         }
 
-        return redirect()->route('home')->with('portal-connect-failed', true);
+        return redirect()->route('profile')->with('portal-connect-failed', true);
     }
 }

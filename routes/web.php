@@ -2,12 +2,13 @@
 
 use App\Http\Controllers\PortalAuthCallbackController;
 use App\Http\Controllers\PortalSignedEventController;
+use App\Http\Middleware\EnsureOnboarded;
 use Illuminate\Support\Facades\Route;
 
-Route::view('/', 'home')->name('home');
-
 // Deep-link receiver: einundzwanzig://auth?token=… (custom scheme) and the
-// verified App Link https://portal…/app/auth?token=… both land here.
+// verified App Link https://portal…/app/auth?token=… both land here. These
+// routes must stay outside the onboarding gate — a redirect would swallow
+// the token callback.
 Route::get('auth', PortalAuthCallbackController::class)->name('portal.callback');
 Route::get('app/auth', PortalAuthCallbackController::class)->name('portal.handoff');
 
@@ -16,13 +17,21 @@ Route::get('app/auth', PortalAuthCallbackController::class)->name('portal.handof
 Route::get('signed/{payload}', PortalSignedEventController::class)
     ->where('payload', '.*')
     ->name('portal.signed');
-Route::livewire('meetups', 'pages::meetups.index')->name('meetups');
-Route::livewire('meetups/{slug}', 'pages::meetups.show')->name('meetups.show');
-Route::livewire('events', 'pages::events.index')->name('events');
-Route::livewire('map', 'pages::map.index')->name('map');
-Route::livewire('courses', 'pages::courses.index')->name('courses');
-Route::livewire('courses/{id}', 'pages::courses.show')->whereNumber('id')->name('courses.show');
-Route::livewire('lecturers/{id}', 'pages::lecturers.show')->whereNumber('id')->name('lecturers.show');
+
+Route::livewire('onboarding', 'pages::onboarding.index')->name('onboarding');
+
+Route::middleware(EnsureOnboarded::class)->group(function () {
+    Route::redirect('/', '/meetups')->name('home');
+
+    Route::livewire('meetups', 'pages::meetups.index')->name('meetups');
+    Route::livewire('meetups/{slug}', 'pages::meetups.show')->name('meetups.show');
+    Route::livewire('events', 'pages::events.index')->name('events');
+    Route::livewire('map', 'pages::map.index')->name('map');
+    Route::livewire('courses', 'pages::courses.index')->name('courses');
+    Route::livewire('courses/{id}', 'pages::courses.show')->whereNumber('id')->name('courses.show');
+    Route::livewire('lecturers/{id}', 'pages::lecturers.show')->whereNumber('id')->name('lecturers.show');
+    Route::livewire('profile', 'pages::profile.index')->name('profile');
+});
 
 Route::middleware(['auth', 'verified'])->group(function () {
     Route::view('dashboard', 'dashboard')->name('dashboard');

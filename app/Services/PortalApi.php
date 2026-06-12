@@ -193,15 +193,19 @@ final class PortalApi
     }
 
     /**
+     * Ohne search/selected begrenzt das Portal auf 10 Einträge; selected
+     * (Codes oder IDs) hebt das Limit für genau diese Länder auf.
+     *
+     * @param  list<int|string>  $selected
      * @return Collection<int, CountryData>
      */
-    public function countries(?string $search = null): Collection
+    public function countries(?string $search = null, array $selected = []): Collection
     {
         $json = $this->remember(
             'countries',
-            [$search],
+            [$search, $selected],
             self::TTL_STATIC_SECONDS,
-            new GetCountriesRequest($search),
+            new GetCountriesRequest($search, $selected),
         );
 
         return GetCountriesRequest::collectData($json ?? []);

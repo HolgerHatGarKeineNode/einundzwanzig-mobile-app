@@ -19,9 +19,9 @@ final class PortalAuthCallbackController extends Controller
         if ($token !== '') {
             $portalAuth->storeToken($token);
 
-            return redirect()->route('home')->with('portal-connected', true);
+            return redirect()->route('profile')->with('portal-connected', true);
         }
 
-        return redirect()->route('home');
+        return redirect()->route('profile');
     }
 }

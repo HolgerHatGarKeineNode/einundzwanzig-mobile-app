@@ -16,6 +16,9 @@ use Tests\TestCase;
 
 pest()->extend(TestCase::class)
     ->use(RefreshDatabase::class)
+    // Standard: Onboarding abgeschlossen, Region „Alle Länder“ — Tests zum
+    // Onboarding selbst setzen den Zustand mit resetOnboarding() zurück.
+    ->beforeEach(fn () => completeOnboarding())
     ->in('Feature');
 
 /*
@@ -44,9 +47,22 @@ expect()->extend('toBeOne', function () {
 |
 */
 
+use App\Services\AppPreferences;
 use App\Services\PortalAuth;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\DB;
 use Native\Mobile\Facades\SecureStorage;
+
+function completeOnboarding(string $locale = 'de', string $country = ''): void
+{
+    app(AppPreferences::class)->completeOnboarding($locale, $country);
+}
+
+function resetOnboarding(): void
+{
+    DB::table('preferences')->delete();
+    app()->forgetInstance(AppPreferences::class);
+}
 
 function withPortalToken(string $token = '12|secrettoken'): void
 {

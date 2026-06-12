@@ -3,6 +3,8 @@
 namespace App\Providers;
 
 use App\Services\AndroidManifestPatcher;
+use App\Services\AppPreferences;
+use App\Services\CountryOptions;
 use App\Services\PortalAuth;
 use Carbon\CarbonImmutable;
 use Illuminate\Console\Events\CommandFinished;
@@ -30,6 +32,14 @@ class AppServiceProvider extends ServiceProvider
         // Eine Instanz pro Request, damit die Token-Memoisierung (Keystore-
         // Bridge-Call) über PortalConnector und PortalApi hinweg greift.
         $this->app->scoped(PortalAuth::class);
+
+        // Eine Instanz pro Request, damit Middleware und Seiten die
+        // Preferences-Tabelle nur einmal lesen.
+        $this->app->scoped(AppPreferences::class);
+
+        // Eine Instanz pro Request, damit Render und Validierung die
+        // memoisierte Länderliste teilen (Cache-Read + DTO-Mapping).
+        $this->app->scoped(CountryOptions::class);
     }
 
     /**

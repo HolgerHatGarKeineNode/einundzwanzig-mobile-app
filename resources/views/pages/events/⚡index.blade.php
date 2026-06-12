@@ -2,6 +2,7 @@
 
 use App\Data\Portal\MeetupEventData;
 use App\Livewire\PortalPage;
+use App\Services\CountryOptions;
 use App\Services\PortalApi;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Collection;
@@ -15,10 +16,26 @@ new #[Layout('layouts::mobile', ['title' => 'Termine', 'heading' => 'Termine'])]
     #[Url]
     public string $month = '';
 
+    /** Länderfilter (Code); leer = alle Länder. */
+    #[Url]
+    public string $country = '';
+
     /** Index des im Modal geöffneten Termins (Position in $this->events). */
     public ?int $selected = null;
 
     public bool $showEvent = false;
+
+    public function mount(): void
+    {
+        $this->country = $this->defaultCountry();
+    }
+
+    public function updatedCountry(): void
+    {
+        $this->selected = null;
+        $this->showEvent = false;
+        unset($this->events, $this->days, $this->selectedEvent, $this->countries);
+    }
 
     public function previousMonth(): void
     {
@@ -55,8 +72,9 @@ new #[Layout('layouts::mobile', ['title' => 'Termine', 'heading' => 'Termine'])]
     }
 
     /**
-     * Termine des angezeigten Monats, chronologisch. Im aktuellen Monat
-     * ab heute (die API filtert ab dem übergebenen Datum bis Monatsende).
+     * Termine des angezeigten Monats, chronologisch und nach Länderfilter.
+     * Im aktuellen Monat ab heute (die API filtert ab dem übergebenen
+     * Datum bis Monatsende).
      *
      * @return Collection<int, MeetupEventData>
      */
@@ -65,10 +83,36 @@ new #[Layout('layouts::mobile', ['title' => 'Termine', 'heading' => 'Termine'])]
     {
         $from = $this->isCurrentMonth() ? CarbonImmutable::today() : $this->monthStart();
 
-        return app(PortalApi::class)
-            ->meetupEvents($from->toDateString())
+        $country = mb_strtolower($this->country);
+
+        return $this->allEvents($from)
+            ->filter(fn (MeetupEventData $event): bool => $country === '' || mb_strtolower($event->meetup->country) === $country)
             ->sortBy(fn (MeetupEventData $event): int => $event->start->getTimestamp())
             ->values();
+    }
+
+    /**
+     * Ländercodes aller Termine des Monats für den Filter.
+     *
+     * @return list<string>
+     */
+    #[Computed]
+    public function countries(): array
+    {
+        $from = $this->isCurrentMonth() ? CarbonImmutable::today() : $this->monthStart();
+
+        return CountryOptions::filterCodes(
+            $this->allEvents($from)->map(fn (MeetupEventData $event): string => $event->meetup->country),
+            $this->country,
+        );
+    }
+
+    /**
+     * @return Collection<int, MeetupEventData>
+     */
+    protected function allEvents(CarbonImmutable $from): Collection
+    {
+        return app(PortalApi::class)->meetupEvents($from->toDateString());
     }
 
     /**
@@ -115,7 +159,7 @@ new #[Layout('layouts::mobile', ['title' => 'Termine', 'heading' => 'Termine'])]
         $this->month = $start->isSameMonth(CarbonImmutable::today()) ? '' : $start->format('Y-m');
         $this->selected = null;
         $this->showEvent = false;
-        unset($this->monthStart, $this->isCurrentMonth, $this->events, $this->days, $this->selectedEvent);
+        unset($this->monthStart, $this->isCurrentMonth, $this->events, $this->days, $this->selectedEvent, $this->countries);
     }
 };
 ?>
@@ -129,12 +173,23 @@ new #[Layout('layouts::mobile', ['title' => 'Termine', 'heading' => 'Termine'])]
         <flux:button wire:click="nextMonth" size="sm" variant="ghost" icon="chevron-right" class="cursor-pointer" :aria-label="__('Nächster Monat')"/>
     </div>
 
+    <flux:select wire:model.live="country">
+        <flux:select.option value="">🌍 {{ __('Alle Länder') }}</flux:select.option>
+        @foreach ($this->countries as $code)
+            <flux:select.option value="{{ $code }}">{{ \App\Services\CountryOptions::flagEmoji($code) }} {{ strtoupper($code) }}</flux:select.option>
+        @endforeach
+    </flux:select>
+
     @if ($this->events->isEmpty())
         <x-empty-state icon="calendar-days" :heading="__('Keine Termine')">
             <flux:text class="max-w-xs">
-                {{ $this->isCurrentMonth
-                    ? __('Für den Rest dieses Monats sind keine Meetup-Termine eingetragen — oder die Daten konnten nicht geladen werden.')
-                    : __('Für diesen Monat sind keine Meetup-Termine eingetragen.') }}
+                @if ($country !== '')
+                    {{ __('Für diese Region sind in diesem Monat keine Termine eingetragen — wähle „Alle Länder“, um alle Termine zu sehen.') }}
+                @else
+                    {{ $this->isCurrentMonth
+                        ? __('Für den Rest dieses Monats sind keine Meetup-Termine eingetragen — oder die Daten konnten nicht geladen werden.')
+                        : __('Für diesen Monat sind keine Meetup-Termine eingetragen.') }}
+                @endif
             </flux:text>
         </x-empty-state>
     @else

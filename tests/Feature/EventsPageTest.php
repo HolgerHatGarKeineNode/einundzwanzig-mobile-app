@@ -118,6 +118,34 @@ it('shares the selected event via the native share sheet', function () {
         ->call('share');
 });
 
+it('applies the onboarding region as default country filter', function () {
+    completeOnboarding(country: 'at');
+    withoutPortalToken();
+    MockClient::global([
+        GetMeetupEventsRequest::class => MockResponse::make(upcomingEventFixtures()),
+    ]);
+
+    Livewire::test('pages::events.index')
+        ->assertSet('country', 'at')
+        ->assertSee('Einundzwanzig Wien')
+        ->assertDontSee('Einundzwanzig Franken');
+});
+
+it('filters the events by country and resets the selection', function () {
+    withoutPortalToken();
+    MockClient::global([
+        GetMeetupEventsRequest::class => MockResponse::make(upcomingEventFixtures()),
+    ]);
+
+    Livewire::test('pages::events.index')
+        ->call('select', 0)
+        ->set('country', 'at')
+        ->assertSet('selected', null)
+        ->assertSet('showEvent', false)
+        ->assertSee('Einundzwanzig Wien')
+        ->assertDontSee('Einundzwanzig Franken');
+});
+
 it('renders the events page over http', function () {
     withoutPortalToken();
     MockClient::global([
