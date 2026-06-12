@@ -2,14 +2,25 @@
 
 namespace App\Providers;
 
+use App\Services\AndroidManifestPatcher;
 use Carbon\CarbonImmutable;
+use Illuminate\Console\Events\CommandFinished;
+use Illuminate\Console\Events\CommandStarting;
 use Illuminate\Support\Facades\Date;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Event;
 use Illuminate\Support\ServiceProvider;
 use Illuminate\Validation\Rules\Password;
 
 class AppServiceProvider extends ServiceProvider
 {
+    /**
+     * NativePHP-Befehle, vor deren Build das Android-Manifest gepatcht sein muss.
+     *
+     * @var list<string>
+     */
+    private const NATIVE_BUILD_COMMANDS = ['native:run', 'native:package', 'native:watch'];
+
     /**
      * Register any application services.
      */
@@ -24,6 +35,30 @@ class AppServiceProvider extends ServiceProvider
     public function boot(): void
     {
         $this->configureDefaults();
+        $this->keepNativeManifestPatched();
+    }
+
+    /**
+     * Wendet den launchMode-Fix (PLAN 1.21) automatisch an: nach `native:install`
+     * (re-scaffoldet das Manifest aus dem Vendor-Template) und vor jedem Build.
+     */
+    protected function keepNativeManifestPatched(): void
+    {
+        if (! $this->app->runningInConsole()) {
+            return;
+        }
+
+        Event::listen(CommandStarting::class, function (CommandStarting $event): void {
+            if (in_array($event->command, self::NATIVE_BUILD_COMMANDS, true) && $this->app->make(AndroidManifestPatcher::class)->ensureSingleTask()) {
+                $event->output->writeln('<info>AndroidManifest.xml gepatcht: launchMode singleTop → singleTask (Amber-Deep-Link-Fix).</info>');
+            }
+        });
+
+        Event::listen(CommandFinished::class, function (CommandFinished $event): void {
+            if ($event->command === 'native:install' && $this->app->make(AndroidManifestPatcher::class)->ensureSingleTask()) {
+                $event->output->writeln('<info>AndroidManifest.xml gepatcht: launchMode singleTop → singleTask (Amber-Deep-Link-Fix).</info>');
+            }
+        });
     }
 
     /**
