@@ -1,0 +1,364 @@
+<?php
+
+namespace App\Services;
+
+use App\Data\Portal\BtcMapCommunityData;
+use App\Data\Portal\CityData;
+use App\Data\Portal\CountryData;
+use App\Data\Portal\CourseData;
+use App\Data\Portal\CourseEventData;
+use App\Data\Portal\LecturerData;
+use App\Data\Portal\MapMeetupData;
+use App\Data\Portal\MeetupData;
+use App\Data\Portal\MeetupEventData;
+use App\Data\Portal\MemberMeetupData;
+use App\Data\Portal\UserProfileData;
+use App\Data\Portal\VenueData;
+use App\Http\Integrations\Portal\PortalConnector;
+use App\Http\Integrations\Portal\Requests\GetBtcMapCommunitiesRequest;
+use App\Http\Integrations\Portal\Requests\GetCitiesRequest;
+use App\Http\Integrations\Portal\Requests\GetCountriesRequest;
+use App\Http\Integrations\Portal\Requests\GetCoursesRequest;
+use App\Http\Integrations\Portal\Requests\GetLecturersRequest;
+use App\Http\Integrations\Portal\Requests\GetMapMeetupsRequest;
+use App\Http\Integrations\Portal\Requests\GetMeetupEventsRequest;
+use App\Http\Integrations\Portal\Requests\GetMemberMeetupsRequest;
+use App\Http\Integrations\Portal\Requests\GetMyCourseEventsRequest;
+use App\Http\Integrations\Portal\Requests\GetMyMeetupsRequest;
+use App\Http\Integrations\Portal\Requests\GetUserRequest;
+use App\Http\Integrations\Portal\Requests\GetVenuesRequest;
+use Closure;
+use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Cache;
+use Native\Mobile\Facades\Network;
+use Saloon\Exceptions\Request\FatalRequestException;
+use Saloon\Exceptions\Request\RequestException;
+use Saloon\Http\Request;
+use Saloon\Http\Response;
+
+/**
+ * Lesende Fassade über die Portal-API: schickt Saloon-Requests und cached
+ * die rohen JSON-Antworten zweistufig (frisch mit TTL + dauerhafte
+ * Stale-Kopie), damit die App offline die zuletzt geladenen Daten zeigt.
+ * DTO-Mapping passiert erst beim Lesen, damit Schema-Änderungen keinen
+ * kaputt serialisierten Cache hinterlassen.
+ */
+final class PortalApi
+{
+    private const CACHE_PREFIX = 'portal_api:';
+
+    private const STALE_SUFFIX = ':stale';
+
+    /** Stammdaten (Meetups, Kurse, Orte, Länder): 1 Tag. */
+    public const TTL_STATIC_SECONDS = 86400;
+
+    /** Termine: 1 Stunde. */
+    public const TTL_EVENTS_SECONDS = 3600;
+
+    /** Eigene Daten (auth): 15 Minuten. */
+    public const TTL_MINE_SECONDS = 900;
+
+    private ?bool $online = null;
+
+    public function __construct(
+        private readonly PortalConnector $connector,
+        private readonly PortalAuth $portalAuth,
+    ) {}
+
+    /**
+     * @return Collection<int, MapMeetupData>
+     */
+    public function mapMeetups(bool $withIntro = false, bool $withLogos = false): Collection
+    {
+        $json = $this->remember(
+            'map-meetups',
+            [$withIntro, $withLogos],
+            self::TTL_STATIC_SECONDS,
+            new GetMapMeetupsRequest($withIntro, $withLogos),
+        );
+
+        return GetMapMeetupsRequest::collectData($json ?? []);
+    }
+
+    /**
+     * @return Collection<int, MeetupEventData>
+     */
+    public function meetupEvents(?string $date = null): Collection
+    {
+        $json = $this->remember(
+            'meetup-events',
+            [$date],
+            self::TTL_EVENTS_SECONDS,
+            new GetMeetupEventsRequest($date),
+        );
+
+        return GetMeetupEventsRequest::collectData($json ?? []);
+    }
+
+    /**
+     * @return Collection<int, CourseData>
+     */
+    public function courses(?string $search = null, ?int $userId = null): Collection
+    {
+        $json = $this->remember(
+            'courses',
+            [$search, $userId],
+            self::TTL_STATIC_SECONDS,
+            new GetCoursesRequest($search, $userId),
+        );
+
+        return GetCoursesRequest::collectData($json ?? []);
+    }
+
+    /**
+     * @return Collection<int, LecturerData>
+     */
+    public function lecturers(?string $search = null): Collection
+    {
+        $json = $this->remember(
+            'lecturers',
+            [$search],
+            self::TTL_STATIC_SECONDS,
+            new GetLecturersRequest($search),
+        );
+
+        return GetLecturersRequest::collectData($json ?? []);
+    }
+
+    /**
+     * @return Collection<int, CityData>
+     */
+    public function cities(?string $search = null): Collection
+    {
+        $json = $this->remember(
+            'cities',
+            [$search],
+            self::TTL_STATIC_SECONDS,
+            new GetCitiesRequest($search),
+        );
+
+        return GetCitiesRequest::collectData($json ?? []);
+    }
+
+    /**
+     * @return Collection<int, VenueData>
+     */
+    public function venues(?string $search = null): Collection
+    {
+        $json = $this->remember(
+            'venues',
+            [$search],
+            self::TTL_STATIC_SECONDS,
+            new GetVenuesRequest($search),
+        );
+
+        return GetVenuesRequest::collectData($json ?? []);
+    }
+
+    /**
+     * @return Collection<int, CountryData>
+     */
+    public function countries(?string $search = null): Collection
+    {
+        $json = $this->remember(
+            'countries',
+            [$search],
+            self::TTL_STATIC_SECONDS,
+            new GetCountriesRequest($search),
+        );
+
+        return GetCountriesRequest::collectData($json ?? []);
+    }
+
+    /**
+     * @return Collection<int, BtcMapCommunityData>
+     */
+    public function btcMapCommunities(): Collection
+    {
+        $json = $this->remember(
+            'btc-map-communities',
+            [],
+            self::TTL_STATIC_SECONDS,
+            new GetBtcMapCommunitiesRequest,
+        );
+
+        return GetBtcMapCommunitiesRequest::collectData($json ?? []);
+    }
+
+    /**
+     * Vom Nutzer erstellte Meetups. Ohne Portal-Token leer, ohne Request.
+     *
+     * @return Collection<int, MeetupData>
+     */
+    public function myMeetups(): Collection
+    {
+        if (! $this->portalAuth->hasToken()) {
+            return new Collection;
+        }
+
+        $json = $this->remember(
+            'my-meetups',
+            [],
+            self::TTL_MINE_SECONDS,
+            new GetMyMeetupsRequest,
+            fn (Response $response): mixed => $response->json('data'),
+        );
+
+        return GetMyMeetupsRequest::collectData($json ?? []);
+    }
+
+    /**
+     * Eigene Kurs-Events. Ohne Portal-Token leer, ohne Request.
+     *
+     * @return Collection<int, CourseEventData>
+     */
+    public function myCourseEvents(?int $courseId = null): Collection
+    {
+        if (! $this->portalAuth->hasToken()) {
+            return new Collection;
+        }
+
+        $json = $this->remember(
+            'my-course-events',
+            [$courseId],
+            self::TTL_MINE_SECONDS,
+            new GetMyCourseEventsRequest($courseId),
+        );
+
+        return GetMyCourseEventsRequest::collectData($json ?? []);
+    }
+
+    /**
+     * Meetups, denen der Nutzer beigetreten ist. Ohne Portal-Token leer.
+     * ⚠️ Liefert derzeit 401, bis das Portal die Route auf auth:sanctum
+     * umstellt (siehe GetMemberMeetupsRequest).
+     *
+     * @return Collection<int, MemberMeetupData>
+     */
+    public function memberMeetups(?string $search = null): Collection
+    {
+        if (! $this->portalAuth->hasToken()) {
+            return new Collection;
+        }
+
+        $json = $this->remember(
+            'member-meetups',
+            [$search],
+            self::TTL_MINE_SECONDS,
+            new GetMemberMeetupsRequest($search),
+        );
+
+        return GetMemberMeetupsRequest::collectData($json ?? []);
+    }
+
+    /**
+     * Profil des Token-Inhabers — ungecacht; die Offline-Kopie verwaltet
+     * bereits PortalAuth::profile().
+     */
+    public function user(): ?UserProfileData
+    {
+        if (! $this->portalAuth->hasToken()) {
+            return null;
+        }
+
+        try {
+            $response = $this->connector->send(new GetUserRequest);
+        } catch (FatalRequestException|RequestException) {
+            return null;
+        }
+
+        if ($response->failed()) {
+            return null;
+        }
+
+        /** @var UserProfileData */
+        return $response->dtoOrFail();
+    }
+
+    /**
+     * Frisch gecachte Antwort liefern oder den Endpunkt abrufen; bei
+     * Netzwerk-/Serverfehlern (oder offline) fällt der Aufruf auf die
+     * dauerhaft gespeicherte Stale-Kopie zurück.
+     *
+     * @param  list<mixed>  $params
+     * @param  (Closure(Response): mixed)|null  $extract
+     * @return array<int|string, mixed>|null
+     */
+    private function remember(string $endpoint, array $params, int $ttlSeconds, Request $request, ?Closure $extract = null): ?array
+    {
+        $key = $this->cacheKey($endpoint, $params);
+
+        $cached = Cache::get($key);
+
+        if (is_array($cached)) {
+            return $cached;
+        }
+
+        if (! $this->isOnline()) {
+            return $this->stale($key);
+        }
+
+        try {
+            $response = $this->connector->send($request);
+        } catch (FatalRequestException|RequestException) {
+            return $this->stale($key);
+        }
+
+        if ($response->failed()) {
+            return $this->stale($key);
+        }
+
+        $json = $extract !== null ? $extract($response) : $response->json();
+
+        if (! is_array($json)) {
+            return $this->stale($key);
+        }
+
+        Cache::put($key, $json, $ttlSeconds);
+        Cache::forever($key.self::STALE_SUFFIX, $json);
+
+        return $json;
+    }
+
+    /**
+     * @return array<int|string, mixed>|null
+     */
+    private function stale(string $key): ?array
+    {
+        $stale = Cache::get($key.self::STALE_SUFFIX);
+
+        return is_array($stale) ? $stale : null;
+    }
+
+    /**
+     * @param  list<mixed>  $params
+     */
+    private function cacheKey(string $endpoint, array $params): string
+    {
+        $key = self::CACHE_PREFIX.$endpoint;
+
+        if (array_filter($params, fn (mixed $param): bool => $param !== null && $param !== false) !== []) {
+            $key .= ':'.md5((string) json_encode($params));
+        }
+
+        return $key;
+    }
+
+    /**
+     * Offline-Erkennung über das NativePHP-Network-Plugin; ohne Bridge
+     * (Tests, lokale Entwicklung) gilt die App als online. Memoisiert pro
+     * Instanz, weil jeder Status-Check ein Bridge-Call in den nativen
+     * Layer ist und eine PortalApi nur einen Request/Render lang lebt.
+     */
+    private function isOnline(): bool
+    {
+        return $this->online ??= $this->checkOnline();
+    }
+
+    private function checkOnline(): bool
+    {
+        $status = Network::status();
+
+        return $status === null || (bool) ($status->connected ?? true);
+    }
+}

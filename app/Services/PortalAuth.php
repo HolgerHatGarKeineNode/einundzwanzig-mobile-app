@@ -19,6 +19,15 @@ final class PortalAuth
 
     private const PROFILE_CACHE_TTL_DAYS = 30;
 
+    /**
+     * Memoised keystore value: every SecureStorage call is a bridge hop
+     * into the native layer, and callers (connector auth, my*-guards)
+     * read the token several times per request.
+     */
+    private ?string $memoizedToken = null;
+
+    private bool $tokenLoaded = false;
+
     public function baseUrl(): string
     {
         return rtrim((string) config('services.portal.url'), '/');
@@ -57,12 +66,24 @@ final class PortalAuth
 
     public function storeToken(string $token): bool
     {
-        return SecureStorage::set(self::TOKEN_KEY, $token);
+        $stored = SecureStorage::set(self::TOKEN_KEY, $token);
+
+        if ($stored) {
+            $this->memoizedToken = $token;
+            $this->tokenLoaded = true;
+        }
+
+        return $stored;
     }
 
     public function token(): ?string
     {
-        return SecureStorage::get(self::TOKEN_KEY);
+        if (! $this->tokenLoaded) {
+            $this->memoizedToken = SecureStorage::get(self::TOKEN_KEY);
+            $this->tokenLoaded = true;
+        }
+
+        return $this->memoizedToken;
     }
 
     public function hasToken(): bool
@@ -73,6 +94,9 @@ final class PortalAuth
     public function forgetToken(): bool
     {
         Cache::forget(self::PROFILE_CACHE_KEY);
+
+        $this->memoizedToken = null;
+        $this->tokenLoaded = true;
 
         return SecureStorage::delete(self::TOKEN_KEY);
     }

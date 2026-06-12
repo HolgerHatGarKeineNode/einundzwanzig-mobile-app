@@ -3,6 +3,7 @@
 namespace App\Providers;
 
 use App\Services\AndroidManifestPatcher;
+use App\Services\PortalAuth;
 use Carbon\CarbonImmutable;
 use Illuminate\Console\Events\CommandFinished;
 use Illuminate\Console\Events\CommandStarting;
@@ -26,7 +27,9 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
-        //
+        // Eine Instanz pro Request, damit die Token-Memoisierung (Keystore-
+        // Bridge-Call) über PortalConnector und PortalApi hinweg greift.
+        $this->app->scoped(PortalAuth::class);
     }
 
     /**

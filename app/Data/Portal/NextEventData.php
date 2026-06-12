@@ -1,0 +1,25 @@
+<?php
+
+namespace App\Data\Portal;
+
+use Carbon\CarbonImmutable;
+use Spatie\LaravelData\Data;
+
+/**
+ * Nächster Termin eines Meetups, verschachtelt in GET /api/meetups
+ * (next_event aus dem nextEvent-Attribut des Portal-Meetup-Models).
+ */
+final class NextEventData extends Data
+{
+    public function __construct(
+        public int $id,
+        public CarbonImmutable $start,
+        public string $portalLink,
+        public ?string $location,
+        public ?string $description,
+        public ?string $link,
+        public int $attendees,
+        public int $might_attendees,
+        public ?string $nostr_note,
+    ) {}
+}
