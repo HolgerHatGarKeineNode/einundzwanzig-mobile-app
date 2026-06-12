@@ -25,3 +25,9 @@ yarn-error.log
 auth.json
 /public/android-hot
 /public/ios-hot
+
+# Credential files (keystores, private keys, etc.)
+/credentials/
+
+# Release-Artefakte (scripts/release.sh)
+/dist/
