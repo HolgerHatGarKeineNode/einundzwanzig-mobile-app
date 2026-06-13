@@ -204,6 +204,25 @@ return [
         'storage/framework/cache',
         'storage/framework/testing',
         'storage/logs/laravel.log',
+
+        // Diese Liste wird in PreparesBuild::prepareLaravelBundle() in die
+        // rsync-/Zip-Exclude-Patterns gemergt (Android-Pfad nutzt NICHT die
+        // BundleExclusions-Klasse). Einträge mit führendem "/" sind auf den
+        // Projekt-Root verankert — wichtig, damit z. B. nur das eigene dist/
+        // ausgeschlossen wird und NICHT vendor/livewire/*/dist (Runtime-JS/CSS!).
+        '/dist',           // Release-Artefakte (alte APKs) — Ursache des Größenwachstums
+        '/.codegraph',     // CodeGraph-Index (Dev-Tooling)
+        '/.claude',        // Claude-Skills (Dev-Tooling)
+        '/.agents',        // Agent-Skills (Dev-Tooling)
+        '/tests',          // App-Testsuite (zur Laufzeit nicht benötigt)
+        '/storage/logs',   // Logs (können sich ansammeln)
+
+        // Nicht-Laufzeit-Dateien (von NativePHPs iOS-Pfad ebenso entfernt).
+        // OHNE führenden "/" → greift auf jeder Ebene (auch in vendor/), wird
+        // beim rsync-Copy entfernt, bevor das Bundle gezippt wird. Markdown/
+        // Doku werden zur Laufzeit nie geladen.
+        '*.md',            // README/CHANGELOG etc. (~2 MB in vendor)
+        'docs',            // Doku-Verzeichnisse in Paketen
     ],
 
     /*
