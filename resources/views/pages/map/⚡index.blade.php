@@ -85,7 +85,7 @@ new #[Layout('layouts::mobile', ['title' => 'Karte', 'heading' => 'Orte & Karte'
 };
 ?>
 
-<div class="flex flex-col gap-4">
+<x-portal-page>
     <flux:tabs wire:model.live="tab" variant="segmented" class="w-full">
         <flux:tab name="karte">{{ __('Karte') }}</flux:tab>
         <flux:tab name="staedte">{{ __('Städte') }}</flux:tab>
@@ -177,6 +177,4 @@ new #[Layout('layouts::mobile', ['title' => 'Karte', 'heading' => 'Orte & Karte'
         @endif
     @endif
 
-    {{-- Als letztes Kind, damit der Status NACH den API-Zugriffen feststeht (order-first zeigt es oben). --}}
-    <x-portal-status/>
-</div>
+</x-portal-page>

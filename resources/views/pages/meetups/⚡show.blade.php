@@ -82,7 +82,7 @@ new #[Layout('layouts::mobile', ['title' => 'Meetup', 'heading' => 'Meetup'])] c
 };
 ?>
 
-<div class="flex flex-col gap-4">
+<x-portal-page>
     @if ($this->meetup === null)
         <x-portal-empty-state icon="map-pin" :heading="__('Meetup nicht gefunden')" min-height="min-h-[60dvh]">
             <flux:text class="max-w-xs">
@@ -201,6 +201,4 @@ new #[Layout('layouts::mobile', ['title' => 'Meetup', 'heading' => 'Meetup'])] c
         @endif
     @endif
 
-    {{-- Als letztes Kind, damit der Status NACH den API-Zugriffen feststeht (order-first zeigt es oben). --}}
-    <x-portal-status/>
-</div>
+</x-portal-page>

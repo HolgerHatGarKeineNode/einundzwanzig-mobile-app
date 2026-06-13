@@ -97,7 +97,7 @@ new #[Layout('layouts::mobile', ['title' => 'Kurse', 'heading' => 'Kurse'])] cla
 };
 ?>
 
-<div class="flex flex-col gap-4">
+<x-portal-page>
     <flux:tabs wire:model.live="tab" variant="segmented" class="w-full">
         <flux:tab name="kurse">{{ __('Kurse') }}</flux:tab>
         <flux:tab name="referenten">{{ __('Referenten') }}</flux:tab>
@@ -178,6 +178,4 @@ new #[Layout('layouts::mobile', ['title' => 'Kurse', 'heading' => 'Kurse'])] cla
         @endif
     @endif
 
-    {{-- Als letztes Kind, damit der Status NACH den API-Zugriffen feststeht (order-first zeigt es oben). --}}
-    <x-portal-status/>
-</div>
+</x-portal-page>

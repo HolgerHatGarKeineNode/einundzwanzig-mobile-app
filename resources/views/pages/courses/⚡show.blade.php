@@ -41,7 +41,7 @@ new #[Layout('layouts::mobile', ['title' => 'Kurs', 'heading' => 'Kurs'])] class
 };
 ?>
 
-<div class="flex flex-col gap-4">
+<x-portal-page>
     @if ($this->course === null)
         <x-portal-empty-state icon="academic-cap" :heading="__('Kurs nicht gefunden')" min-height="min-h-[60dvh]">
             <flux:text class="max-w-xs">
@@ -125,6 +125,4 @@ new #[Layout('layouts::mobile', ['title' => 'Kurs', 'heading' => 'Kurs'])] class
         @endif
     @endif
 
-    {{-- Als letztes Kind, damit der Status NACH den API-Zugriffen feststeht (order-first zeigt es oben). --}}
-    <x-portal-status/>
-</div>
+</x-portal-page>
