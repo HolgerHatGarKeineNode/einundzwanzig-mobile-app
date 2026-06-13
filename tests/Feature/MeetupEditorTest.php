@@ -1,0 +1,161 @@
+<?php
+
+use App\Http\Integrations\Portal\Requests\CreateMeetupRequest;
+use App\Http\Integrations\Portal\Requests\GetCitiesRequest;
+use App\Http\Integrations\Portal\Requests\GetMapMeetupsRequest;
+use App\Http\Integrations\Portal\Requests\GetMyMeetupsRequest;
+use App\Http\Integrations\Portal\Requests\UpdateMeetupRequest;
+use Livewire\Livewire;
+use Saloon\Http\Faking\MockClient;
+use Saloon\Http\Faking\MockResponse;
+use Saloon\Http\Request;
+
+afterEach(fn () => MockClient::destroyGlobal());
+
+it('creates a meetup with the selected city and sends the payload', function () {
+    withPortalToken();
+    MockClient::global([
+        GetMapMeetupsRequest::class => MockResponse::make([]),
+        CreateMeetupRequest::class => MockResponse::make(['data' => myMeetupFixture(['id' => 99])], 201),
+    ]);
+
+    Livewire::test('meetup-editor')
+        ->set('form.name', 'Einundzwanzig Musterstadt')
+        ->call('selectCity', 7, 'Musterstadt')
+        ->set('form.intro', 'Hallo **Welt**')
+        ->call('save')
+        ->assertHasNoErrors()
+        ->assertDispatched('meetup-saved')
+        ->assertSet('editingId', null);
+
+    MockClient::global()->assertSent(fn (Request $request): bool => $request instanceof CreateMeetupRequest
+        && $request->body()->all()['name'] === 'Einundzwanzig Musterstadt'
+        && $request->body()->all()['city_id'] === 7
+        && $request->body()->all()['intro'] === 'Hallo **Welt**');
+});
+
+it('requires a name and a city before sending', function () {
+    withPortalToken();
+
+    Livewire::test('meetup-editor')
+        ->call('save')
+        ->assertHasErrors(['form.name' => 'required', 'form.city_id' => 'required'])
+        ->assertNotDispatched('meetup-saved');
+});
+
+it('warns about a possible duplicate before creating and lets the user override', function () {
+    withPortalToken();
+    MockClient::global([
+        GetMapMeetupsRequest::class => MockResponse::make([viennaMeetupFixture()]),
+        CreateMeetupRequest::class => MockResponse::make(['data' => myMeetupFixture()], 201),
+    ]);
+
+    $component = Livewire::test('meetup-editor')
+        ->set('form.name', 'Einundzwanzig Wien')
+        ->call('selectCity', 5, 'Wien')
+        ->call('save')
+        ->assertNotDispatched('meetup-saved')
+        ->assertSee('Gibt es das schon?');
+
+    MockClient::global()->assertNotSent(CreateMeetupRequest::class);
+
+    $component->set('ignoreDuplicates', true)
+        ->call('save')
+        ->assertDispatched('meetup-saved');
+
+    MockClient::global()->assertSent(CreateMeetupRequest::class);
+});
+
+it('maps a 422 response back onto the form fields', function () {
+    withPortalToken();
+    MockClient::global([
+        GetMapMeetupsRequest::class => MockResponse::make([]),
+        CreateMeetupRequest::class => MockResponse::make([
+            'message' => 'The given data was invalid.',
+            'errors' => ['name' => ['Dieser Name ist bereits vergeben.']],
+        ], 422),
+    ]);
+
+    Livewire::test('meetup-editor')
+        ->set('form.name', 'Einundzwanzig Musterstadt')
+        ->call('selectCity', 7, 'Musterstadt')
+        ->call('save')
+        ->assertHasErrors('form.name')
+        ->assertSee('Dieser Name ist bereits vergeben.')
+        ->assertNotDispatched('meetup-saved');
+});
+
+it('loads an own meetup for editing and sends an update', function () {
+    withPortalToken();
+    MockClient::global([
+        GetMyMeetupsRequest::class => MockResponse::make(['data' => [myMeetupFixture(['id' => 21])]]),
+        GetMapMeetupsRequest::class => MockResponse::make([mapMeetupFixture()]),
+        UpdateMeetupRequest::class => MockResponse::make(['data' => myMeetupFixture(['id' => 21])], 200),
+    ]);
+
+    Livewire::test('meetup-editor')
+        ->call('open', 21)
+        ->assertSet('editingId', 21)
+        ->assertSet('form.name', 'Einundzwanzig Aschaffenburg')
+        ->assertSet('form.cityName', 'Aschaffenburg')
+        ->set('form.intro', 'Aktualisierte Beschreibung')
+        ->call('save')
+        ->assertDispatched('meetup-saved');
+
+    MockClient::global()->assertSent(fn (Request $request): bool => $request instanceof UpdateMeetupRequest
+        && $request->resolveEndpoint() === '/meetup/21'
+        && $request->body()->all()['intro'] === 'Aktualisierte Beschreibung');
+});
+
+it('keeps the editor open and reports a 403 when editing a foreign meetup', function () {
+    withPortalToken();
+    MockClient::global([
+        GetMyMeetupsRequest::class => MockResponse::make(['data' => [myMeetupFixture(['id' => 21])]]),
+        GetMapMeetupsRequest::class => MockResponse::make([mapMeetupFixture()]),
+        UpdateMeetupRequest::class => MockResponse::make(['message' => 'This action is unauthorized.'], 403),
+    ]);
+
+    Livewire::test('meetup-editor')
+        ->call('open', 21)
+        ->set('form.name', 'Geändert')
+        ->call('save')
+        ->assertNotDispatched('meetup-saved')
+        ->assertSet('editingId', 21);
+});
+
+it('searches cities for the picker from two characters', function () {
+    withPortalToken();
+    MockClient::global([
+        GetCitiesRequest::class => MockResponse::make([cityFixture()]),
+    ]);
+
+    Livewire::test('meetup-editor')
+        ->set('cityQuery', 'Reg')
+        ->assertSee('Regensburg')
+        ->assertSee('Germany');
+});
+
+it('renders a markdown preview of the description', function () {
+    withPortalToken();
+
+    Livewire::test('meetup-editor')
+        ->set('form.intro', 'Hallo **Welt**')
+        ->call('togglePreview')
+        ->assertSet('showPreview', true)
+        ->assertSeeHtml('<strong>Welt</strong>');
+});
+
+it('is not reachable without a portal token via the writer gate', function () {
+    withoutPortalToken();
+    MockClient::global([
+        GetMapMeetupsRequest::class => MockResponse::make([]),
+    ]);
+
+    Livewire::test('meetup-editor')
+        ->set('form.name', 'Einundzwanzig Musterstadt')
+        ->call('selectCity', 7, 'Musterstadt')
+        ->call('save')
+        ->assertNotDispatched('meetup-saved');
+
+    MockClient::global()->assertNotSent(CreateMeetupRequest::class);
+});

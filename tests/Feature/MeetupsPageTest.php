@@ -90,6 +90,46 @@ it('shows the own meetups on the my-meetups tab when connected', function () {
         ->assertSee(route('meetups.show', 'aschaffenburg'));
 });
 
+it('shows an edit affordance and status badge on own meetups', function () {
+    withPortalToken();
+    MockClient::global([
+        GetMapMeetupsRequest::class => MockResponse::make([viennaMeetupFixture()]),
+        GetMyMeetupsRequest::class => MockResponse::make(['data' => [myMeetupFixture(['is_active' => true])]]),
+    ]);
+
+    Livewire::test('pages::meetups.index')
+        ->set('tab', 'meine')
+        ->assertSee('Einundzwanzig Aschaffenburg')
+        ->assertSee('Aktiv')
+        ->assertSee('Meetup bearbeiten');
+});
+
+it('shows a create call-to-action when the own meetups list is empty', function () {
+    withPortalToken();
+    MockClient::global([
+        GetMapMeetupsRequest::class => MockResponse::make([viennaMeetupFixture()]),
+        GetMyMeetupsRequest::class => MockResponse::make(['data' => []]),
+    ]);
+
+    Livewire::test('pages::meetups.index')
+        ->set('tab', 'meine')
+        ->assertSee('Noch keine eigenen Meetups')
+        ->assertSee('Meetup anlegen');
+});
+
+it('refreshes the own meetups after a save event', function () {
+    withPortalToken();
+    MockClient::global([
+        GetMapMeetupsRequest::class => MockResponse::make([viennaMeetupFixture()]),
+        GetMyMeetupsRequest::class => MockResponse::make(['data' => [myMeetupFixture()]]),
+    ]);
+
+    Livewire::test('pages::meetups.index')
+        ->set('tab', 'meine')
+        ->dispatch('meetup-saved')
+        ->assertSee('Einundzwanzig Aschaffenburg');
+});
+
 it('renders the meetups page over http', function () {
     withoutPortalToken();
     MockClient::global([

@@ -1,4 +1,4 @@
-# VERSION 1.1.0 — „Create & Curate"
+# VERSION 1.2.0 — „Create & Curate"
 
 > **Mission:** Aus der read-only-App (v1.0) wird eine vollwertige Lese-**und-Schreib**-App
 > mit AAA-Design, geführtem Onboarding, durchdachter Navigation und CRUD für eigene
@@ -16,13 +16,14 @@
 - **Portal-Anbindung:** `app/Services/PortalApi.php` ist eine **rein lesende** Saloon-Fassade mit 2-stufigem Cache (frisch + stale/offline). Auth-Token via Deep-Link-Flow (`PortalAuth`).
 - **Seiten:** Meetups (Liste+Detail), Termine, Karte, Kurse/Referenten, Profil, Onboarding (1-Step Sprache+Region).
 - **Navigation:** Bottom-Nav (Meetups · Termine · Karte · Profil) + Flyout-Menü (Kurse, Referenten, Städte, Einstellungen).
-- **Schreib-API ist serverseitig schon da** (Portal): `create/update-meetup`, `add-meetup-to-mine`, `create/update-meetup-event`, `create/update-venue`, `create/update-city`, `create/update-lecturer`, `create/update-course`, `create/update-course-event`. ➜ v1.1.0 macht sie in der App nutzbar.
+- **Schreib-API ist serverseitig schon da** (Portal): `create/update-meetup`, `add-meetup-to-mine`, `create/update-meetup-event`, `create/update-venue`, `create/update-city`, `create/update-lecturer`, `create/update-course`, `create/update-course-event`. ➜ v1.2.0 macht sie in der App nutzbar.
 
-**Leitprinzipien für v1.1.0**
+**Leitprinzipien für v1.2.0**
 1. **AAA-Design** — keine generische CRUD-Optik. Motion, Haptik, Skeletons, Empty-States mit Charakter, konsistente Brand-Tokens.
 2. **Offline-tauglich bleiben** — Schreib-Operationen müssen mit dem bestehenden Cache/Offline-Modell koexistieren (Outbox/Retry statt Datenverlust).
 3. **Auth-gated** — Schreiben nur mit gültigem Portal-Token; saubere „Bitte verbinden"-Flows.
 4. **Jede Änderung getestet** — Pest-Feature-/Livewire-Tests, `pint --dirty` vor Abschluss.
+5. **Phase-Abschluss-Ritual** — jede Phase endet mit (a) Erweiterung + Lauf der opt-in **Integrationssuite** gegen das lokale Portal-Dev (`scripts/run-integration.sh` mit Token = inkl. Schreibpfade; `composer test:integration` nur Lese) und (b) einer **Playwright-Validierung** der neuen Flows gegen die Live-Portal-API (wie Phase 2). Beides ist als letzte Checkboxen jeder offenen Phase eingetragen.
 
 ---
 
@@ -103,19 +104,19 @@
 
 > Kern-Wunsch: Nutzer können selbst Meetups anlegen, bearbeiten und „zu meinen hinzufügen".
 
-- [ ] **4.1** „Meetup anlegen"-Flow (Bottom-Sheet/Vollbild-Form, via FAB aus Phase 2):
-  - [ ] Felder: Name, Stadt (Suche/Anlegen), Land, Beschreibung (Markdown), Logo (Upload via NativePHP Camera/Gallery), Aktiv-Status, Links/Socials.
-  - [ ] Stadt-Auswahl mit `search-cities`; falls nicht vorhanden → Inline „Stadt anlegen" (Phase 6).
-  - [ ] **Duplikat-Schutz:** vor dem Anlegen `search-meetups` (Name + Stadt) — bestehendes Meetup vorschlagen statt Duplikat.
-- [ ] **4.2** „Meetup bearbeiten" für eigene Meetups (`list-my-meetups` → `update-meetup`), nur für Ersteller/Admin.
-- [ ] **4.3** „Zu meinen Meetups hinzufügen" (`add-meetup-to-mine`) direkt aus dem Meetup-Detail (Beitreten/Folgen-Button).
-- [ ] **4.4** Tab „Meine" im Meetups-Index aufwerten: Edit-Affordance pro Karte, Status-Badges (Aktiv/Inaktiv), „Neu anlegen"-CTA wenn leer.
-- [ ] **4.5** Markdown-Editor/Preview-Toggle für Beschreibung (Reuse `RendersMarkdown`).
-- [ ] **4.6** Logo-Upload-Pipeline: Bild wählen/aufnehmen → zuschneiden → an Portal senden; Offline-Fallback.
-- [ ] **4.7** Erfolgs-/Fehler-Feedback: Flux-Toast + Haptik; 422-Feldfehler an die Form-Felder mappen.
-- [ ] **4.8** Tests: Create (Erfolg/Duplikat/422), Update (Ersteller-Gate), Add-to-mine, leerer-Tab-CTA.
+- [x] **4.1** „Meetup anlegen"-Flow (Bottom-Sheet via FAB): `livewire/meetup-editor` (im Layout eingebettet, besitzt das Sheet `create-meetup`), geöffnet per `open-meetup-editor`-Event. Schreibt über den `PortalWriter`.
+  - [x] Felder: Name, Stadt (Suche), Beschreibung (Markdown), Aktiv-Status, „Auf der Karte zeigen", Links (Telegram/Webseite/Nostr/X). *(Land wird über die Stadt aufgelöst — REST-Write erwartet nur `city_id`, kein Land. **Logo verschoben**, siehe 4.6.)*
+  - [x] Stadt-Auswahl mit `search-cities` (`PortalApi::cities($q, withDetails)`, ab 2 Zeichen, debounced). *(Inline „Stadt anlegen" → Phase 6; bis dahin Hinweis im Leerzustand.)*
+  - [x] **Duplikat-Schutz:** vor dem Senden in-memory gegen die gecachten Karten-Meetups (Name + Stadt) geprüft; Treffer als Warn-Block mit Links + „Trotzdem anlegen"-Bestätigung. *(Kein `search-meetups`-Endpunkt-Spam — konsistent mit der globalen Suche.)*
+- [x] **4.2** „Meetup bearbeiten" für eigene Meetups (`my-meetups` → `update-meetup`): Edit-Button im „Meine"-Tab lädt das Meetup in denselben Editor; 403 → klare Fehlermeldung (Ersteller/Admin-Gate serverseitig).
+- [ ] ⛔ **4.3** „Zu meinen Meetups hinzufügen" (`add-meetup-to-mine`) — **blockiert:** keine REST-Route im Portal (nur MCP-Tool), siehe Offene Fragen / Phase 0.1. Aus v1.2.0 ausgeklammert, bis die Portal-Route existiert.
+- [x] **4.4** Tab „Meine" aufgewertet: Edit-Affordance pro Karte, Status-Badge (Aktiv/Inaktiv), „Meetup anlegen"-CTA wenn leer; Liste lädt nach Speichern via `meetup-saved`-Event neu.
+- [x] **4.5** Markdown-Editor/Preview-Toggle für die Beschreibung — Sanitisierung in `App\Support\Markdown` ausgelagert (Reuse-Quelle für `RendersMarkdown` + Live-Vorschau).
+- [ ] ⛔ **4.6** Logo-Upload-Pipeline — **blockiert:** `StoreMeetupRequest` des Portals kennt kein `logo`-Feld (multipart nicht verifiziert), siehe Offene Fragen. Verschoben, bis die Portal-API Uploads unterstützt.
+- [x] **4.7** Erfolgs-/Fehler-Feedback: Flux-Toast (success/danger/warning) + Haptik (`window.haptic`); 422-Feldfehler werden via `addError('form.<feld>')` an die Form-Felder gemappt.
+- [x] **4.8** Tests: `MeetupEditorTest` (Create+Payload, Pflichtfelder, Duplikat-Warnung+Override, 422→Feldfehler, Edit-Laden+Update, 403-Gate, City-Suche, Markdown-Vorschau, Token-Gate — 9 grün) + erweiterte `MeetupsPageTest` (Edit-Affordance/Badge, Leer-CTA, Refresh) + `LocalizationTest` deckt den Editor mit ab. **208 grün.**
 
-**Akzeptanz:** Verbundener Nutzer legt ein Meetup an, sieht es im „Meine"-Tab, bearbeitet es, und ein zweites Konto kann es zu seinen hinzufügen.
+**Akzeptanz:** ✅ Verbundener Nutzer legt ein Meetup an (Stadt-Suche, Duplikat-Schutz, Markdown), sieht es im „Meine"-Tab und bearbeitet es dort. ⚠️ „Zu meinen hinzufügen" (4.3) und Logo-Upload (4.6) portalseitig blockiert — ausgeklammert. ⚠️ Visuelle On-Device-Abnahme → Phase 9.4.
 
 ---
 
@@ -127,6 +128,8 @@
 - [ ] **5.4** Wiederkehrende Termine als Komfort (z. B. „jeden 3. Donnerstag") → mehrere Einzeltermine erzeugen. *(Stretch — sauber markieren.)*
 - [ ] **5.5** Termin-Detail-Seite (eigene Route) mit Add-to-Calendar (Phase 8.2), Karte, Teilnehmen.
 - [ ] **5.6** Tests: Termin-Create/Update, Ort-Verknüpfung, Datums-Validierung (keine Vergangenheit beim Anlegen).
+- [ ] **5.7** Integrationssuite erweitern + laufen lassen: Termin-Create/Update (`create/update-meetup-event`) real gegen das lokale Portal-Dev in `tests/Integration/PortalLiveTest.php` absichern (`scripts/run-integration.sh`, opt-in — nicht in der Standard-Suite).
+- [ ] **5.8** Playwright-Validierung der neuen Termin-Flows gegen die Live-Portal-API (funktionale + visuelle Abnahme im Web-Renderer, wie Phase 2).
 
 **Akzeptanz:** Aus einem eigenen Meetup heraus lässt sich ein Termin anlegen, der sofort im Termine-Tab erscheint.
 
@@ -139,6 +142,8 @@
 - [ ] **6.3** Karten-Picker-Component (Leaflet, Reuse aus `map`-Seite): Pin setzen → Lat/Lng in die Form.
 - [ ] **6.4** „Meine Orte/Städte" im „Meine Inhalte"-Hub (`list-my-venues`, `list-my-cities`).
 - [ ] **6.5** Tests: Venue/City Create+Update, Geo-Picker liefert Koordinaten, Verknüpfung Meetup↔Venue↔City.
+- [ ] **6.6** Integrationssuite erweitern + laufen lassen: Venue-/City-Create/Update (`create/update-venue`, `create/update-city`) real gegen das lokale Portal-Dev in `tests/Integration/PortalLiveTest.php` absichern (`scripts/run-integration.sh`, opt-in).
+- [ ] **6.7** Playwright-Validierung der Venue-/Stadt-Flows + Karten-Picker gegen die Live-Portal-API (funktionale + visuelle Abnahme im Web-Renderer, wie Phase 2).
 
 **Akzeptanz:** Beim Meetup-/Termin-Anlegen kann eine neue Stadt/Venue ohne Kontextwechsel mitangelegt werden.
 
@@ -153,6 +158,8 @@
 - [ ] **7.3** Kurs-Event anlegen/bearbeiten (`create/update-course-event`): Datum, Ort/Online, Anmeldung.
 - [ ] **7.4** „Meine Kurse/Referenten" im Hub; Edit aus Kurs-/Referenten-Detail.
 - [ ] **7.5** Tests: Lecturer/Course/CourseEvent CRUD + Verknüpfungen.
+- [ ] **7.6** Integrationssuite erweitern + laufen lassen: Lecturer-/Course-/CourseEvent-Create/Update real gegen das lokale Portal-Dev in `tests/Integration/PortalLiveTest.php` absichern (`scripts/run-integration.sh`, opt-in).
+- [ ] **7.7** Playwright-Validierung der Kurs-/Referenten-Flows gegen die Live-Portal-API (funktionale + visuelle Abnahme im Web-Renderer, wie Phase 2).
 
 **Akzeptanz:** Ein Referent legt einen Kurs samt Termin an, der unter Kurse erscheint.
 
@@ -173,6 +180,8 @@
 - [ ] **8.9 Pull-to-Refresh & Cache-Status** — einheitliche Refresh-Geste + sichtbarer „zuletzt aktualisiert / offline"-Hinweis (baut auf `servedStaleData`).
 - [ ] **8.10 Widget/Quick-Action** — Android-Shortcut „Nächster Termin". *(Stretch.)*
 - [ ] **8.11 Mehrsprachigkeit prüfen** — alle neuen Strings via `__()` + `lang/`-Dateien (de/en).
+- [ ] **8.12** Integrationssuite erweitern + laufen lassen: die schreibenden/Portal-gebundenen 8.x-Features (z. B. RSVP 8.5, Push 8.6) real gegen das lokale Portal-Dev absichern, soweit Endpunkte existieren (`scripts/run-integration.sh`, opt-in).
+- [ ] **8.13** Playwright-Validierung der umgesetzten Zusatz-Features (Favoriten, Teilen, Pull-to-Refresh …) gegen die Live-Portal-API (funktionale + visuelle Abnahme im Web-Renderer, wie Phase 2).
 
 **Akzeptanz (MVP-Set):** 8.1, 8.2, 8.3, 8.6, 8.9 funktionieren und sind getestet.
 
@@ -186,10 +195,12 @@
 - [ ] **9.4** Manuelles Geräte-QA auf echtem Android (Hot-Reload-Loop), Screenshots der Kern-Flows.
 - [ ] **9.5** Accessibility-Pass (Touch-Target ≥ 44px, Kontrast, Focus-Order, Screenreader-Labels).
 - [ ] **9.6** Performance: Cold-Start, Listen-Scroll, Cache-Treffer prüfen.
-- [ ] **9.7** Version-Bump auf `1.1.0` (`config/nativephp.php`), Changelog/Release-Notes.
+- [ ] **9.7** Version-Bump auf `1.2.0` (`config/nativephp.php`), Changelog/Release-Notes.
 - [ ] **9.8** Signierte APK + GPG-Manifest via GitHub-Release (Skill `/github-release`, Amber-Style).
+- [ ] **9.9** Integrationssuite (gesamt) grün gegen das lokale Portal-Dev — alle CRUD-Schreibpfade (Meetup/Termin/Venue/City/Kurs) in `tests/Integration/PortalLiveTest.php` (`scripts/run-integration.sh` mit Token).
+- [ ] **9.10** Playwright-Vollabnahme aller Kern-Flows gegen die Live-Portal-API (ergänzt den Pest-Browser-Smoke 9.1; funktionale + visuelle Abnahme im Web-Renderer).
 
-**Definition of Done v1.1.0:** Verbundener Nutzer kann Meetups + Termine anlegen/bearbeiten, eigene zu „Meine" hinzufügen; Onboarding ist mehrstufig und führt zur optionalen Portal-Verbindung; Navigation hat FAB + globale Suche; Design erfüllt das AAA-Niveau aus Phase 1; alle Pfade getestet; signierter Release liegt vor.
+**Definition of Done v1.2.0:** Verbundener Nutzer kann Meetups + Termine anlegen/bearbeiten, eigene zu „Meine" hinzufügen; Onboarding ist mehrstufig und führt zur optionalen Portal-Verbindung; Navigation hat FAB + globale Suche; Design erfüllt das AAA-Niveau aus Phase 1; alle Pfade getestet; signierter Release liegt vor.
 
 ---
 
@@ -215,7 +226,7 @@ Onboarding (3) danach, weil es die Portal-Verbindung & Push aus Phase 4/8 voraus
 
 | Datum | Entscheidung | Begründung |
 |------|--------------|-----------|
-| 2026-06-13 | v1.1.0 = read→write-Wende; Schreib-Layer (`PortalWriter`) gespiegelt zu `PortalApi` | Portal-Schreib-API existiert bereits; saubere Trennung Lesen/Schreiben |
+| 2026-06-13 | v1.2.0 = read→write-Wende; Schreib-Layer (`PortalWriter`) gespiegelt zu `PortalApi` | Portal-Schreib-API existiert bereits; saubere Trennung Lesen/Schreiben |
 | 2026-06-13 | REST-Writes erwarten **IDs** (`city_id`, `meetup_id`, `country_id`), nicht Namen | Die Namen-Auflösung macht nur das MCP-Tool-Layer; die App muss Stadt/Land/Meetup also vorab über die Such-/Listen-Endpunkte zu IDs auflösen (relevant für die Form-Flows ab Phase 4) |
 | 2026-06-13 | Write-Requests sind **body-only**, DTO-Mapping + 422-Handling zentral im `PortalWriter` (0.2) | `store/update`-Resources des Portals sind nicht deckungsgleich mit den Lese-DTOs (CityResource ohne `country`, MeetupEventResource ohne `meetup`-Objekt) → fragiles Mapping in den Requests vermieden |
 | 2026-06-13 | `add-to-mine` als Blocker dokumentiert statt kaputten Request anzulegen | Keine REST-Route im Portal vorhanden; muss serverseitig geklärt werden |
@@ -236,3 +247,9 @@ Onboarding (3) danach, weil es die Portal-Verbindung & Push aus Phase 4/8 voraus
 | 2026-06-14 | Schritte per `$step`-State + `wire:key`-Remount und CSS-`.step-enter`, **keine Swipe-Gesten** | Livewire-serverseitiger Step-Wechsel ist robust, testbar (`assertSet('step', …)`) und reduced-motion-sicher. Horizontales Swipen bräuchte JS-Touch-Handling mit Konflikten zum vertikalen Scroll; Wert/Aufwand zu gering, Dots + Weiter/Zurück genügen |
 | 2026-06-14 | Deep-Link-Callbacks (`/auth`, `/app/auth`, `/signed`) leiten bei **laufendem Onboarding** zurück in den Pager statt aufs Profil | Wer sich mitten im Onboarding-Portal-Step verbindet, soll im Flow bleiben (nicht auf eine Seite hinter dem Onboarding-Gate). Entscheidung über `AppPreferences::isOnboarded()`; bestehende „onboarded"-Tests bleiben grün (Default-State ist onboarded) |
 | 2026-06-14 | Lade-Indikator als **Poll-Zustand in `portal.connect`** (clientseitig kein Token-Event) | `window.Native` ist nur ein Event-Bus; das Token landet erst nach dem Deep-Link-Callback im Keystore. `wire:poll.2s` auf `hasToken()` zeigt sichtbaren Fortschritt und heilt sich selbst (Deep-Link lädt die Seite ohnehin neu) — erfüllt 3.3 ohne fragiles JS |
+| 2026-06-14 | Meetup-Editor als **eine Livewire-Komponente im Layout** (besitzt das Sheet `create-meetup`), geöffnet per globalem `open-meetup-editor`-Event + `$flux.modal().show()` | Der FAB (Blade, im Layout) und der Edit-Button (auf der Meetups-Seite) liegen außerhalb jeder Komponente bzw. in einer anderen — ein einziges Sheet-Instance im Layout (wie die globale Suche) entkoppelt Öffnen (clientseitig) von Datenladen (Server). `Livewire.dispatch` statt `$wire`, weil der FAB keinen Komponenten-Scope hat |
+| 2026-06-14 | **Land** wird nicht als eigenes Editor-Feld erfasst; der Stadtname beim Bearbeiten wird aus den gecachten Karten-Meetups (per Slug) aufgelöst | Der REST-Write erwartet nur `city_id` (Land hängt serverseitig an der Stadt). `PortalApi::cities()` exponiert kein `selected`-Lookup für eine einzelne ID → der netzwerkfreie Slug-Abgleich gegen `mapMeetups()` liefert den Anzeigenamen ohne Zusatz-Call |
+| 2026-06-14 | **Duplikat-Schutz in-memory** gegen `mapMeetups()` (Name/Stadt) statt `search-meetups`-Endpunkt; als Warnung + „Trotzdem anlegen", nicht als harte Sperre | Konsistent mit der globalen Suche (kein Cache-Müll/API-Spam pro Tastendruck); die MCP-Anweisung „kein Duplikat" wird als bewusste Nutzer-Bestätigung umgesetzt, da die App keine serverseitige Namensauflösung hat |
+| 2026-06-14 | Markdown-Sanitisierung nach **`App\Support\Markdown`** ausgelagert; `RendersMarkdown` (Lese-DTOs) memoisiert nur noch darum herum | Phase 4.5 „Reuse `RendersMarkdown`": die Live-Vorschau im Editor braucht dieselbe Allowlist/Strip-Logik wie die DTOs. Eine statische Single-Source-Funktion vermeidet Duplizierung, ohne die DTO-Memoisierung anzufassen |
+| 2026-06-14 | **4.3 (add-to-mine)** und **4.6 (Logo-Upload)** aus v1.2.0 ausgeklammert | 4.3: keine REST-Route im Portal (nur MCP-Tool). 4.6: `StoreMeetupRequest` kennt kein `logo`-Feld, multipart-Upload unbestätigt. Beides serverseitig zu klären (Offene Fragen) — statt kaputter Requests bewusst als Blocker dokumentiert |
+| 2026-06-14 | **Phase-Abschluss-Ritual** als feste letzte Checkboxen jeder offenen Phase (5–9): opt-in **Integrationssuite** (`scripts/run-integration.sh`) + **Playwright-Validierung** gegen die Live-Portal-API | Die Feature-/Livewire-Tests mocken die Portal-API (Saloon `MockClient`); die echten Schreibpfade werden erst gegen ein laufendes Portal-Dev wirklich abgesichert. Das Ritual zieht beides verbindlich an jedes Phasenende, statt es ans Release (Phase 9) zu vertagen — Integrationssuite bleibt opt-in (nicht in der Standard-Suite), Playwright wie in Phase 2 bereits etabliert |

@@ -21,6 +21,14 @@ pest()->extend(TestCase::class)
     ->beforeEach(fn () => completeOnboarding())
     ->in('Feature');
 
+// Manuelle Integrationstests (echte Calls gegen ein lokales Portal-Dev) laufen
+// nur über phpunit.integration.xml — die Standard-phpunit.xml referenziert
+// tests/Integration nicht, daher werden sie hier nie automatisch eingesammelt.
+// Kein completeOnboarding-Hook: diese Tests arbeiten auf Service-Ebene.
+pest()->extend(TestCase::class)
+    ->use(RefreshDatabase::class)
+    ->in('Integration');
+
 /*
 |--------------------------------------------------------------------------
 | Expectations

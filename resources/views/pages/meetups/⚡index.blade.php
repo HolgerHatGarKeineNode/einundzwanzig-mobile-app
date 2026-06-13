@@ -9,6 +9,7 @@ use App\Services\PortalAuth;
 use Illuminate\Support\Collection;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\Layout;
+use Livewire\Attributes\On;
 use Livewire\Attributes\Url;
 
 new #[Layout('layouts::mobile', ['title' => 'Meetups', 'heading' => 'Meetups'])] class extends PortalPage
@@ -80,6 +81,17 @@ new #[Layout('layouts::mobile', ['title' => 'Meetups', 'heading' => 'Meetups'])]
             ->myMeetups()
             ->sortBy(fn (MeetupData $meetup): string => mb_strtolower($meetup->name))
             ->values();
+    }
+
+    /**
+     * Nach einem Anlegen/Bearbeiten im Meetup-Editor (Phase 4) die eigene
+     * Liste neu laden. Der PortalWriter hat den Cache bereits invalidiert,
+     * das Verwerfen des memoisierten Computed erzwingt den frischen Refetch.
+     */
+    #[On('meetup-saved')]
+    public function refreshMyMeetups(): void
+    {
+        unset($this->myMeetups);
     }
 
     /** @var Collection<int, MapMeetupData>|null */
@@ -158,27 +170,55 @@ new #[Layout('layouts::mobile', ['title' => 'Meetups', 'heading' => 'Meetups'])]
         </div>
     @else
         @if ($this->myMeetups->isEmpty())
-            <x-portal-empty-state icon="user-group" :heading="__('Keine ausgewählten Meetups')" :error-heading="__('Meetups nicht verfügbar')">
+            <x-portal-empty-state icon="user-group" :heading="__('Noch keine eigenen Meetups')" :error-heading="__('Meetups nicht verfügbar')">
                 <flux:text class="max-w-xs">
-                    {{ __('Wähle im Portal-Dashboard Meetups aus, um sie hier zu sehen.') }}
+                    {{ __('Lege dein erstes Meetup an — es erscheint dann hier und auf der Karte.') }}
                 </flux:text>
+                <flux:button
+                    type="button"
+                    variant="primary"
+                    icon="plus"
+                    x-on:click="$haptic('medium'); $flux.modal('create-meetup').show(); Livewire.dispatch('open-meetup-editor')"
+                    class="cursor-pointer"
+                >
+                    {{ __('Meetup anlegen') }}
+                </flux:button>
             </x-portal-empty-state>
         @else
             <div class="list-stagger flex flex-col gap-3">
                 @foreach ($this->myMeetups as $meetup)
-                    <x-list-link-card
-                        href="{{ route('meetups.show', $meetup->slug) }}"
+                    {{-- Eigene Meetups (Phase 4.4): Karte verlinkt ins Detail, Edit-Button
+                         öffnet den Editor; Status-Badges zeigen Aktiv/Inaktiv. --}}
+                    <div
+                        class="surface-card flex items-center gap-3 p-4"
                         wire:key="my-meetup-{{ $meetup->slug }}"
                         style="--i: {{ $loop->index }}"
                     >
-                        <x-meetup-avatar :logo="$meetup->logo" :name="$meetup->name"/>
-                        <span class="flex min-w-0 flex-col gap-0.5">
-                            <span class="truncate font-semibold">{{ $meetup->name }}</span>
-                            @unless ($meetup->is_active)
-                                <flux:badge color="zinc" size="sm" class="mt-1 w-fit">{{ __('Inaktiv') }}</flux:badge>
-                            @endunless
-                        </span>
-                    </x-list-link-card>
+                        <a
+                            href="{{ route('meetups.show', $meetup->slug) }}"
+                            wire:navigate
+                            x-on:click="$haptic('light')"
+                            class="pressable group flex min-w-0 flex-1 items-center gap-3"
+                        >
+                            <x-meetup-avatar :logo="$meetup->logo" :name="$meetup->name"/>
+                            <span class="flex min-w-0 flex-col gap-1">
+                                <span class="truncate font-semibold">{{ $meetup->name }}</span>
+                                @if ($meetup->is_active)
+                                    <flux:badge color="green" size="sm" class="w-fit">{{ __('Aktiv') }}</flux:badge>
+                                @else
+                                    <flux:badge color="zinc" size="sm" class="w-fit">{{ __('Inaktiv') }}</flux:badge>
+                                @endif
+                            </span>
+                        </a>
+                        <flux:button
+                            type="button"
+                            variant="ghost"
+                            icon="pencil-square"
+                            :aria-label="__('Meetup bearbeiten')"
+                            x-on:click="$haptic('light'); $flux.modal('create-meetup').show(); Livewire.dispatch('open-meetup-editor', { id: {{ $meetup->id }} })"
+                            class="shrink-0 cursor-pointer"
+                        />
+                    </div>
                 @endforeach
             </div>
         @endif

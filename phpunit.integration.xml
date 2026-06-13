@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+    Manuelle Integrationstest-Konfiguration: feuert ECHTE Calls gegen ein
+    lokal laufendes Portal-Dev (Standard http://127.0.0.1:8000). Bewusst NICHT
+    in der Standard-phpunit.xml referenziert, damit `composer test` /
+    `php artisan test` diese Suite nie automatisch mitlaufen lässt.
+
+    Start (nur Lese-Endpunkte):
+        vendor/bin/pest -c phpunit.integration.xml
+        # oder über composer:  composer test:integration
+
+    Mit Schreibtests (legt echte Datensätze im lokalen Portal an):
+        PORTAL_TEST_TOKEN="<sanctum-token>" vendor/bin/pest -c phpunit.integration.xml
+
+    Abweichende Portal-URL (Shell-Env hat Vorrang, da hier kein force):
+        PORTAL_URL="http://127.0.0.1:9000" vendor/bin/pest -c phpunit.integration.xml
+-->
+<phpunit xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:noNamespaceSchemaLocation="vendor/phpunit/phpunit/phpunit.xsd"
+         bootstrap="vendor/autoload.php"
+         colors="true"
+>
+    <testsuites>
+        <testsuite name="Integration">
+            <directory>tests/Integration</directory>
+        </testsuite>
+    </testsuites>
+    <php>
+        <env name="APP_ENV" value="testing"/>
+        <env name="APP_MAINTENANCE_DRIVER" value="file"/>
+        <env name="BCRYPT_ROUNDS" value="4"/>
+        <env name="BROADCAST_CONNECTION" value="null"/>
+        <env name="CACHE_STORE" value="array"/>
+        <env name="DB_CONNECTION" value="sqlite"/>
+        <env name="DB_DATABASE" value=":memory:"/>
+        <env name="DB_URL" value=""/>
+        <env name="MAIL_MAILER" value="array"/>
+        <env name="QUEUE_CONNECTION" value="sync"/>
+        <env name="SESSION_DRIVER" value="array"/>
+        <env name="PULSE_ENABLED" value="false"/>
+        <env name="TELESCOPE_ENABLED" value="false"/>
+        <env name="NIGHTWATCH_ENABLED" value="false"/>
+        <!-- Ziel-Portal; ohne force, damit eine gesetzte Shell-Env gewinnt. -->
+        <env name="PORTAL_URL" value="http://127.0.0.1:8000"/>
+    </php>
+</phpunit>

@@ -89,6 +89,11 @@
             "@types:check",
             "@php artisan test"
         ],
+        "test:integration": [
+            "Composer\\Config::disableProcessTimeout",
+            "@php artisan config:clear --ansi",
+            "@php vendor/bin/pest -c phpunit.integration.xml"
+        ],
         "post-autoload-dump": [
             "Illuminate\\Foundation\\ComposerScripts::postAutoloadDump",
             "@php artisan package:discover --ansi"
