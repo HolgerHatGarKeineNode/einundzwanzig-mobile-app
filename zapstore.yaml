@@ -1,0 +1,41 @@
+# Zapstore-Publishing-Konfiguration für die Einundzwanzig Mobile App.
+# Veröffentlicht wird manuell nach jedem published GitHub-Release:
+#   SIGN_WITH=$NOSTR_BUNKER  zsp publish zapstore.yaml
+# Die Identität (pubkey) muss zur Signatur (Amber/Bunker) passen, sonst kein Whitelisting.
+
+repository: https://github.com/HolgerHatGarKeineNode/einundzwanzig-mobile-app
+pubkey: npub1pt0kw36ue3w2g4haxq3wgm6a2fhtptmzsjlc2j2vphtcgle72qesgpjyc6
+
+name: Einundzwanzig
+summary: Meetups, events, courses and places of the Einundzwanzig Bitcoin community
+description: |
+  The mobile app of the Einundzwanzig community for Android: meetups, events,
+  courses, lecturers and places from the Einundzwanzig Portal — right in your pocket.
+
+  - Meetups & events with a region filter
+  - Map of all meetups (OpenStreetMap)
+  - Courses & lecturers
+  - Sign in with Lightning (LNURL-auth) or Nostr (NIP-55, e.g. Amber)
+  - Offline-ready: recently loaded data stays available
+  - German & English
+
+tags:
+  - bitcoin
+  - nostr
+  - meetups
+  - community
+  - lightning
+  - events
+
+website: https://portal.einundzwanzig.space
+
+release_notes: ./dist/v1.1.0/zapstore-changelog.md
+
+icon: ./public/icon.png
+
+images:
+  - ./assets/screenshots/01-ladebildschirm.webp
+  - ./assets/screenshots/02-meetups.webp
+  - ./assets/screenshots/03-termine.webp
+  - ./assets/screenshots/04-karte.webp
+  - ./assets/screenshots/05-profil.webp

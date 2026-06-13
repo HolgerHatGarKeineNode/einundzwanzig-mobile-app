@@ -15,9 +15,18 @@ Gebaut mit [NativePHP Mobile](https://nativephp.com/mobile), Laravel, Livewire u
 
 ## Download & Installation
 
-> Es gibt **keinen** Play-Store-Release. Offizielle Builds gibt es ausschließlich über
-> GitHub Releases:
+> Es gibt **keinen** Play-Store-Release. Offizielle Builds gibt es über
+> [Zapstore](https://zapstore.dev) und GitHub Releases:
 
+- **Zapstore:** In der [Zapstore](https://zapstore.dev)-App nach **Einundzwanzig** suchen.
+  Installation und Updates sind Nostr-signiert und werden automatisch gegen die Identität
+  des Projekts geprüft (siehe unten).
+- **Obtainium:** [Obtainium](https://obtainium.imranr.dev) installiert die App direkt aus den
+  GitHub-Releases und hält sie automatisch aktuell. Quelle per 1-Klick hinzufügen:
+  **[➜ In Obtainium öffnen](https://apps.obtainium.imranr.dev/redirect.html?r=obtainium://add/https://github.com/HolgerHatGarKeineNode/einundzwanzig-mobile-app)**
+  — oder in Obtainium **Add App** öffnen und die Repo-URL
+  `https://github.com/HolgerHatGarKeineNode/einundzwanzig-mobile-app` einfügen. Obtainium
+  installiert Updates nur, wenn sie dieselbe Android-Signatur tragen (siehe unten).
 - **GitHub:** APK aus dem [neuesten Release](https://github.com/HolgerHatGarKeineNode/einundzwanzig-mobile-app/releases/latest) laden — danach **verifizieren** (siehe unten)
 
 ## Sicherheit & Verifikation
@@ -42,6 +51,15 @@ Package: space.einundzwanzig.mobile
 SHA-256: 44:41:1E:20:A1:B4:3D:0F:66:CF:99:E1:23:8A:33:E7:E8:FD:92:48:F0:D0:D2:58:F5:E0:72:7C:FA:BF:0B:7C
 ```
 
+**Zapstore (Nostr):** Über Zapstore verteilte Releases sind mit dem Nostr-Schlüssel des
+Projekts signiert. Das oben genannte Android-Signaturzertifikat ist per **NIP-C1** kryptografisch
+an diese Identität gebunden — Zapstore prüft bei Installation und Update automatisch, dass die
+App vom echten Herausgeber stammt.
+
+```
+Publisher-npub: npub1pt0kw36ue3w2g4haxq3wgm6a2fhtptmzsjlc2j2vphtcgle72qesgpjyc6
+```
+
 Schwachstellen bitte vertraulich melden — siehe [SECURITY.md](SECURITY.md).
 
 ## Entwicklung
@@ -56,7 +74,7 @@ php artisan test --compact            # Tests
 Details zu Setup, Dev-Loop und Architektur: [`docs/nativephp-ausfuehrungsplan.md`](docs/nativephp-ausfuehrungsplan.md)
 und [`PLAN.md`](PLAN.md).
 
-## Release bauen
+## Release veröffentlichen
 
 ```bash
 php artisan native:release patch      # Version bumpen
@@ -64,7 +82,18 @@ php artisan native:release patch      # Version bumpen
 ```
 
 Das Skript legt alle GitHub-Release-Artefakte unter `dist/v<version>/` ab
-(APK, `manifest-v<version>.txt`, `manifest-v<version>.txt.sig`).
+(APK, `manifest-v<version>.txt`, `manifest-v<version>.txt.sig`). Anschließend wird über zwei
+Kanäle veröffentlicht:
+
+1. **GitHub:** Release unter dem Tag `v<version>` anlegen und die `dist/`-Artefakte anhängen.
+2. **Zapstore:** *nach* dem GitHub-Release mit dem Nostr-Schlüssel des Projekts publizieren:
+
+   ```bash
+   zsp publish zapstore.yaml          # zieht die APK aus dem GitHub-Release
+   ```
+
+   Metadaten und Screenshots stehen in [`zapstore.yaml`](zapstore.yaml); signiert wird per
+   NIP-46 (Amber-Bunker).
 
 ## Lizenz
 

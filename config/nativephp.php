@@ -175,11 +175,17 @@ return [
         'GITHUB_*',
         'DO_SPACES_*',
         '*_SECRET',
-        'DB_PASSWORD',
+        // Deckt MAIL_PASSWORD, REDIS_PASSWORD, DB_PASSWORD, ANDROID_*_PASSWORD ab.
+        '*_PASSWORD',
         'DB_USERNAME',
+        'MAIL_USERNAME',
         // Signing-Credentials (Keystore) dürfen nie mit ins App-Bundle.
         'ANDROID_KEYSTORE_*',
         'ANDROID_KEY_*',
+        // Nostr-Signing fürs zapstore-Publishing (Bunker-Secret) – nie ausliefern.
+        'SIGN_WITH',
+        'NOSTR_BUNKER_URL',
+        'NOSTR_CLIENT_SK',
     ],
 
     /*

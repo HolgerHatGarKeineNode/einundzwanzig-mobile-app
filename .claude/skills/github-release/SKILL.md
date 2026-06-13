@@ -44,7 +44,8 @@ unverifizierte Artefakte hochladen.
 - Gibt es ein vorheriges Release-Tag: `git log <letztes-tag>..HEAD --oneline` als Quelle.
 - Erstes Release: Feature-Überblick aus `README.md`/`PLAN.md`.
 - 3–8 prägnante Bullet-Points, nutzerorientiert formuliert (was hat der Nutzer davon?),
-  Deutsch, keine Commit-Hashes, keine internen Codenamen.
+  **auf Englisch** (alle veröffentlichten Release-Texte sind ab v1.1.0 ausschließlich Englisch —
+  siehe Memory `release-texte-englisch`), keine Commit-Hashes, keine internen Codenamen.
 
 ### 4. Release-Notes nach Template generieren
 
@@ -52,43 +53,43 @@ Notes-Datei nach `dist/v<version>/release-notes.md` schreiben (liegt in dist/, i
 Template — Platzhalter ersetzen, Struktur und Verifikationsblock NICHT verändern:
 
 ```markdown
-## Was ist neu
+## What's new
 
-<3–8 Bullet-Points der Änderungen>
+<3–8 bullet points of the changes>
 
 ## Download
 
-> Es gibt keinen Play-Store-Release. Offizielle Builds gibt es ausschließlich hier auf GitHub.
+> There is no Play Store release. Official builds are available exclusively here on GitHub.
 
-- `einundzwanzig-universal-v<version>.apk` unten herunterladen und **verifizieren** (siehe unten)
+- Download `einundzwanzig-universal-v<version>.apk` below and **verify it** (see below)
 
-## Release verifizieren
+## Verify the release
 
-Vollständige Anleitung: [VERIFY_RELEASES.md](https://github.com/HolgerHatGarKeineNode/einundzwanzig-mobile-app/blob/master/VERIFY_RELEASES.md)
+Full guide: [VERIFY_RELEASES.md](https://github.com/HolgerHatGarKeineNode/einundzwanzig-mobile-app/blob/master/VERIFY_RELEASES.md)
 
-**1. Signatur-Schlüssel importieren** (einmalig):
+**1. Import the signing key** (one-time):
 
 ​```bash
 gpg --keyserver hkps://keys.openpgp.org --recv-keys B2DD9D9969E61E617125346E6D5B01E06AA11B68
 ​```
 
-Fingerprint muss exakt lauten: `B2DD 9D99 69E6 1E61 7125  346E 6D5B 01E0 6AA1 1B68` — sonst **nicht fortfahren**.
+The fingerprint must read exactly: `B2DD 9D99 69E6 1E61 7125  346E 6D5B 01E0 6AA1 1B68` — otherwise **do not proceed**.
 
-**2. Manifest-Signatur prüfen:**
+**2. Check the manifest signature:**
 
 ​```bash
 gpg --verify manifest-v<version>.txt.sig manifest-v<version>.txt
 ​```
 
-Erwartet: `gpg: Good signature from "fsociety.mkv@pm.me"`
+Expected: `gpg: Good signature from "fsociety.mkv@pm.me"`
 
-**3. APK-Prüfsumme vergleichen:**
+**3. Compare the APK checksum:**
 
 ​```bash
 sha256sum -c manifest-v<version>.txt
 ​```
 
-**4. Android-Zertifikat prüfen** (optional, [AppVerifier](https://github.com/soupslurpr/AppVerifier)/apksigner):
+**4. Check the Android certificate** (optional, [AppVerifier](https://github.com/soupslurpr/AppVerifier)/apksigner):
 
 ​```
 space.einundzwanzig.mobile
@@ -97,7 +98,7 @@ space.einundzwanzig.mobile
 
 ## Security
 
-Schwachstellen bitte vertraulich melden: [SECURITY.md](https://github.com/HolgerHatGarKeineNode/einundzwanzig-mobile-app/blob/master/SECURITY.md)
+Please report vulnerabilities confidentially: [SECURITY.md](https://github.com/HolgerHatGarKeineNode/einundzwanzig-mobile-app/blob/master/SECURITY.md)
 ```
 
 (Die `​`-Zeichen vor den Backticks im Template entfernen — sie verhindern nur das vorzeitige
