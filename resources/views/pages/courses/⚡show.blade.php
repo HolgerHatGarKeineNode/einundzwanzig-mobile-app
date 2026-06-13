@@ -7,7 +7,7 @@ use Livewire\Attributes\Computed;
 use Livewire\Attributes\Layout;
 use Native\Mobile\Facades\Share;
 
-new #[Layout('layouts::mobile', ['title' => 'Kurs', 'heading' => 'Kurs'])] class extends PortalPage {
+new #[Layout('layouts::mobile', ['title' => 'Kurs', 'heading' => 'Kurs', 'back' => '/courses'])] class extends PortalPage {
     public int $id;
 
     public function mount(int $id): void

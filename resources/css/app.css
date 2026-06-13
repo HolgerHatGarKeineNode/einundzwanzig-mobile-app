@@ -229,6 +229,53 @@
     box-shadow: var(--shadow-card-pressed);
 }
 
+/* Aktiver Bottom-Nav-Indikator (Phase 2.2): die Pill am oberen Rand des
+   aktiven Tabs fährt sanft ein (Spring). Bei wire:navigate rendert die Nav
+   am Ziel neu, sodass der Indikator dort einblendet. */
+@keyframes nav-pill-in {
+    from {
+        opacity: 0;
+        transform: scaleX(0.3);
+    }
+
+    to {
+        opacity: 1;
+        transform: scaleX(1);
+    }
+}
+
+.nav-pill {
+    animation: nav-pill-in 0.35s var(--ease-spring) backwards;
+}
+
+/* Create-FAB (Phase 2.1): schwebt über der Bottom-Nav und federt beim
+   Erscheinen (oder Kontextwechsel) ein. */
+@keyframes fab-in {
+    from {
+        opacity: 0;
+        transform: translateY(12px) scale(0.85);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+    }
+}
+
+.fab-enter {
+    animation: fab-in 0.4s var(--ease-spring) backwards;
+}
+
+/* Flyout-Hauptmenü (Phase 2.5): Flux rendert den Schließen-Button am oberen
+   Panel-Rand. Da der WebView edge-to-edge unter der Status-Leiste zeichnet,
+   läge das X auf echter Hardware unter Akkuanzeige/Uhr. Der App-Inhalt
+   darunter respektiert den Safe-Area-Inset bereits (pt-safe) — hier wird nur
+   Flux' Button um denselben Inset nach unten versetzt. (Im Web-Renderer ist
+   der Inset 0, der Effekt zeigt sich erst auf dem Gerät.) */
+.menu-flyout button[aria-label] {
+    top: env(safe-area-inset-top) !important;
+}
+
 /* Skeleton-Loader (Phase 1.4): sanftes Opacity-Shimmer statt Spinner. */
 .skeleton {
     background-color: var(--color-zinc-200);
@@ -246,6 +293,8 @@
     .portal-status,
     .page-enter,
     .list-stagger > *,
+    .nav-pill,
+    .fab-enter,
     .skeleton {
         animation: none;
     }

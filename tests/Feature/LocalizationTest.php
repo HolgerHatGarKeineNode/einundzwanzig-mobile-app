@@ -19,7 +19,9 @@ function mobileUiSources(): array
 {
     $files = [
         resource_path('views/layouts/mobile.blade.php'),
+        resource_path('views/components/create-fab.blade.php'),
         resource_path('views/livewire/portal/connect.blade.php'),
+        resource_path('views/livewire/global-search.blade.php'),
         resource_path('views/components/empty-state.blade.php'),
         resource_path('views/components/error-state.blade.php'),
         resource_path('views/components/portal-status.blade.php'),
@@ -34,7 +36,7 @@ function mobileUiSources(): array
         app_path('Data/Portal/LecturerDetailData.php'),
     ];
 
-    foreach (['meetups', 'events', 'map', 'courses', 'lecturers', 'profile', 'onboarding'] as $module) {
+    foreach (['meetups', 'events', 'map', 'courses', 'lecturers', 'profile', 'onboarding', 'mine'] as $module) {
         foreach (File::files(resource_path("views/pages/{$module}")) as $file) {
             $files[] = $file->getPathname();
         }

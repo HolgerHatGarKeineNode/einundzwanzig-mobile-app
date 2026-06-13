@@ -6,7 +6,7 @@ use App\Services\PortalApi;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\Layout;
 
-new #[Layout('layouts::mobile', ['title' => 'Referent', 'heading' => 'Referent'])] class extends PortalPage {
+new #[Layout('layouts::mobile', ['title' => 'Referent', 'heading' => 'Referent', 'back' => '/courses?tab=referenten'])] class extends PortalPage {
     public int $id;
 
     public function mount(int $id): void

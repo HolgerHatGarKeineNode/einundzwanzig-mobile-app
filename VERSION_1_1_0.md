@@ -70,15 +70,15 @@
 
 ## Phase 2 — Navigation 2.0 🧭
 
-- [ ] **2.1** Bottom-Nav überdenken: zentraler **Create-FAB** (kontextsensitiv: auf Meetups → „Meetup anlegen", auf Termine → „Termin anlegen") als 5. Element oder schwebender Button.
-- [ ] **2.2** Aktiver-Tab-Indikator mit Motion (animierter Pill/Underline), Active-Icon-Variante (solid vs. outline).
-- [ ] **2.3** Globale Suche / Command-Palette (`⌘K`-artig, hier als Such-Sheet): meetup-/stadt-/kurs-übergreifend, Sprung direkt ins Detail.
-- [ ] **2.4** Konsistente Zurück-Navigation & Header-Kontext (Titel + optionale Sub-Action rechts) auf allen Detail-Seiten.
-- [ ] **2.5** Flyout-Menü aufräumen: Gruppierung (Entdecken / Meine Inhalte / Einstellungen), Profil-Header mit Avatar + Verbindungsstatus.
-- [ ] **2.6** Deep-Link-/Back-Stack-Verhalten testen (Hardware-Back auf Android verlässt nicht versehentlich die App mitten im Flow).
-- [ ] **2.7** „Meine Inhalte"-Hub: neue Sektion/Seite, die eigene Meetups, Termine, Orte, Kurse bündelt (Einstieg in alle CRUD-Flows).
+- [x] **2.1** **Create-FAB** als schwebender Button (nicht 5. Grid-Element) umgesetzt: `<x-create-fab>`, kontextsensitiv (Meetups/Hub → „Meetup anlegen", Termine → „Termin anlegen"), auth-gated (nur mit Token sichtbar). Öffnet das kontextgebundene Create-Sheet (Greifer-Bottom-Sheet); das Formular folgt in Phase 4 (Meetup) bzw. Phase 5 (Termin) — bis dahin ein Platzhalter-Hinweis im Sheet. Haptik beim Tap.
+- [x] **2.2** Aktiver-Tab-Indikator mit Motion: animierte Pill (`.nav-pill`, Spring-Scale-In) am oberen Rand des aktiven Tabs in `bottom-nav-item`; Active-Icon-Variante (solid vs. outline) war bereits da. `prefers-reduced-motion` respektiert.
+- [x] **2.3** Globale Suche als Such-Sheet (`livewire/global-search`, im Layout eingebettet, Header-Lupe öffnet das Flux-Modal): durchsucht Meetups (Name/Stadt), Kurse & Referenten in-memory auf den gecachten Volllisten (kein API-Call pro Tastendruck), ab 2 Zeichen, Sprung direkt ins Detail. Empty-State pro Suchbegriff.
+- [x] **2.4** Konsistente Zurück-Navigation: `back`-Prop im `layouts::mobile`-Header (Chevron-Link statt Logo, mit Haptik) auf `meetups.show` (`/meetups`), `courses.show` (`/courses`), `lecturers.show` (`/courses?tab=referenten`). Header-Kontext (Titel + `actions`-Slot rechts) war bereits angelegt. *(Literale relative Pfade, da PHP-Attribute kein `route()` erlauben — wie das bereits literale `heading`.)*
+- [x] **2.5** Flyout aufgeräumt: Profil-Header (Avatar + Name + grüner/grauer Status-Punkt „Mit Portal verbunden"/„Nicht verbunden", aus `cachedProfile()` = netzwerkfrei) + gruppierte `flux:navlist.group` (Entdecken / Meine Inhalte / Einstellungen) inkl. neuem „Meine Inhalte"-Link. **Bonus-Fix:** Flux rendert den Flyout-Close-Button am Panel-Rand ohne Safe-Area-Inset → lag auf Hardware unter der Status-Leiste; per `.menu-flyout button[aria-label]{top:env(safe-area-inset-top)}` korrigiert (per Playwright mit 40px-Sim verifiziert: X +40px).
+- [~] **2.6** Back-Stack: Navigationsstruktur baut durchgängig auf `wire:navigate` (History-Stack) + die neue Header-Zurück-Navigation (2.4). Echtes **Hardware-Back-Verhalten on-device** ist im Web-Renderer nicht prüfbar → Verifikation zusammen mit Phase 9.4 (Emulator/Gerät via adb).
+- [x] **2.7** „Meine Inhalte"-Hub: neue Route `/mine` (`pages::mine.index`, Bottom-Nav-Match `profile,mine`), auth-gated über `<x-requires-portal>`. Bündelt eigene Meetups (Zähler via `myMeetups()`), Termine, Orte & Städte und Kurse (Zähler via `myCourses()`) als Einstieg; Create läuft über den FAB (Kontext „Meetup" auf `/mine`). Reichere CRUD-Sektionen kommen mit Phase 4–7.
 
-**Akzeptanz:** FAB + aktiver Indikator + globale Suche funktionieren; Navigationsstruktur per Pest-Browser-Smoke-Test ohne JS-Fehler.
+**Akzeptanz:** ✅ FAB (kontextsensitiv, auth-gated) + animierter Aktiv-Indikator + globale Suche funktionieren; per Playwright gegen die Live-Portal-API visuell abgenommen (Suche liefert echte Treffer, Flyout gruppiert, Hub-Gate, Back-Chevron navigiert). 190 grüne Tests (neu: `GlobalSearchTest`, `MineHubTest`, erweiterte `MobileShellTest` + `LocalizationTest`), Pint sauber. ⚠️ Hardware-Back (2.6) → Phase 9.4.
 
 ---
 
@@ -86,9 +86,9 @@
 
 > Aktuell: 1 Step (Sprache + Region). Ziel: mehrstufiger, motivierender Flow mit Permission-Priming und optionaler Portal-Verbindung.
 
-- [ ] **3.1** Mehrstufiger Pager (Swipe/Progress-Dots): Welcome → Sprache → Region → Interessen/Topics → Portal verbinden (optional) → Benachrichtigungen (optional) → Fertig.
+- [ ] **3.1** Mehrstufiger Pager (Swipe/Progress-Dots): Welcome → Sprache → Region → Portal verbinden (optional) → Benachrichtigungen (optional) → Fertig.
 - [ ] **3.2** Welcome-Screen mit Wertversprechen (3 Kacheln: Meetups finden · Termine im Kalender · Eigene Community pflegen).
-- [ ] **3.3** Topic-/Interessen-Auswahl (z. B. Meetups, Kurse, Orte) → personalisiert Start-Tab & Filter-Defaults.
+- [ ] **3.3** Nach connect von Nostr Amber oder Lightning kommt man zurück zur App, aber dort fehlt ein Lade Indicator, man sieht keinen Fortschritt, wie der Flow sich ein Token zieht zB.
 - [ ] **3.4** **Portal-Verbindung in den Onboarding-Flow integrieren** (Lightning/Nostr-Login per Deep-Link/Amber) — mit klarer „Überspringen"-Option (read-only weiter nutzbar).
 - [ ] **3.5** Permission-Priming für Push-Benachrichtigungen (erklärt *warum*, bevor der OS-Dialog kommt) — siehe Phase 8.6.
 - [ ] **3.6** Animierte Übergänge zwischen Steps, Skip/Back, „Fortschritt wird gespeichert" (Resume bei App-Neustart mitten im Onboarding).
@@ -226,3 +226,8 @@ Onboarding (3) danach, weil es die Portal-Verbindung & Push aus Phase 4/8 voraus
 | 2026-06-13 | Design-Tokens als **semantische** Tailwind-v4-`@theme`-Keys (`rounded-card`, `shadow-card`, `ease-spring` …) statt roher rounded-2xl/shadow-sm-Streuung | Ein Token-Set als Single Source of Truth; Cards/Sheets/Tiles teilen Radius/Elevation/Motion. Erleichtert die folgenden CRUD-Screens (Phase 4–7), die nur noch die Tokens referenzieren |
 | 2026-06-13 | App bleibt **dark-first**; Elevation im Dark-Mode via Border/Ring statt Schatten (`dark:shadow-none`) | Bitcoin-/EINUNDZWANZIG-Brand ist dunkel; Schatten sind auf Zinc-950 kaum sichtbar. Der Light-Pfad bleibt über `dark:`-Varianten konsistent und AA-kontrastiert |
 | 2026-06-13 | Visueller Screenshot-Abnahme (Phase-1-Akzeptanz) **auf Phase 9.4 verschoben** | Echte AAA-Optik zeigt sich nur im nativen Build (Emulator/Gerät via adb), nicht im Web-Renderer (würde zudem die echte Portal-API treffen). Implementierung ist durch 181 grüne Tests + sauberen Vite-Build abgesichert |
+| 2026-06-14 | Create-FAB als **schwebender** Button + die echten Create-**Formulare** auf Phase 4/5 vertagt (Phase 2 liefert nur das Sheet-Gerüst mit Platzhalter) | Empfohlene Reihenfolge baut Navigation (2) vor CRUD (4/5); der FAB ist die Navi-Schiene, die Phase 4/5 nur noch mit Formular füllt. Schwebend statt 5. Grid-Element, damit das 4er-Bottom-Nav-Raster + die Daumen-Reichweite erhalten bleiben |
+| 2026-06-14 | Globale Suche filtert **in-memory** auf den gecachten Volllisten (Meetups/Kurse/Referenten), nicht per Such-Endpunkt pro Tastendruck | Such-Param erzeugt je Begriff einen eigenen Cache-Key → API-Spam + Cache-Müll. In-memory-Filter ist konsistent mit dem Meetups-Index und cache-/offline-freundlich. Städte haben keine Detail-Route → bewusst nicht als eigene Trefferkategorie (Stadt-Match läuft über den Meetup-Namen/-Ort) |
+| 2026-06-14 | „Meine Inhalte"-Hub auf eigener Route `/mine`, Bottom-Nav-Match an **Profil** gehängt (`profile,mine`) statt neuem 5. Tab | Kein Platz für einen 5. Bottom-Tab; der Hub ist konzeptionell „mein Bereich" wie Profil. Erreichbar über Flyout-Gruppe „Meine Inhalte". Create-Einstieg liefert der kontextsensitive FAB (Kontext „Meetup" auf `/mine`) |
+| 2026-06-14 | Header-`back` als **literaler relativer Pfad** im `#[Layout]`-Attribut (`/meetups`, `/courses`, `/courses?tab=referenten`) | PHP-Attribute erlauben nur konstante Ausdrücke — kein `route()`. Konsistent mit dem ebenfalls literalen `heading`; NativePHP serviert am Root, relative Pfade + `wire:navigate` sind unkritisch |
+| 2026-06-14 | Flyout-Close-Button per CSS um den **Safe-Area-Top-Inset** versetzt (`.menu-flyout button[aria-label]{top:env(safe-area-inset-top)}`) statt NativePHP-Statusbar-Toggle | NativePHP bietet nur `status_bar_style` (Icon-Farbe), kein „nicht edge-to-edge" — Android 15+ erzwingt Edge-to-Edge. Flux' modaleigener Close-Button kennt den Inset nicht (App-Inhalt via `pt-safe` schon); gezielte CSS-Korrektur, mit Playwright (40px-Sim) verifiziert |
