@@ -1,0 +1,188 @@
+<?php
+
+use App\Http\Integrations\Portal\Requests\CreateMeetupEventRequest;
+use App\Http\Integrations\Portal\Requests\GetMyMeetupEventsRequest;
+use App\Http\Integrations\Portal\Requests\GetMyMeetupsRequest;
+use App\Http\Integrations\Portal\Requests\UpdateMeetupEventRequest;
+use Livewire\Livewire;
+use Saloon\Http\Faking\MockClient;
+use Saloon\Http\Faking\MockResponse;
+use Saloon\Http\Request;
+
+afterEach(fn () => MockClient::destroyGlobal());
+
+it('creates an event for the selected meetup and sends the combined start payload', function () {
+    withPortalToken();
+    MockClient::global([
+        GetMyMeetupsRequest::class => MockResponse::make(['data' => [myMeetupFixture(['id' => 21])]]),
+        CreateMeetupEventRequest::class => MockResponse::make(myMeetupEventFixture(['id' => 99]), 201),
+    ]);
+
+    Livewire::test('event-editor')
+        ->call('open')
+        ->set('form.meetup_id', 21)
+        ->set('form.date', '2026-12-31')
+        ->set('form.time', '19:00')
+        ->set('form.location', 'Bitcoin-Bar')
+        ->set('form.description', 'Jahresabschluss **2026**')
+        ->call('save')
+        ->assertHasNoErrors()
+        ->assertDispatched('meetup-event-saved')
+        ->assertSet('editingId', null);
+
+    MockClient::global()->assertSent(fn (Request $request): bool => $request instanceof CreateMeetupEventRequest
+        && $request->body()->all()['meetup_id'] === 21
+        && $request->body()->all()['start'] === '2026-12-31 19:00'
+        && $request->body()->all()['location'] === 'Bitcoin-Bar');
+});
+
+it('requires a meetup, date and time before sending', function () {
+    withPortalToken();
+    MockClient::global([
+        GetMyMeetupsRequest::class => MockResponse::make(['data' => [myMeetupFixture(['id' => 21])]]),
+    ]);
+
+    Livewire::test('event-editor')
+        ->call('open')
+        ->call('save')
+        ->assertHasErrors(['form.meetup_id' => 'required', 'form.date' => 'required', 'form.time' => 'required'])
+        ->assertNotDispatched('meetup-event-saved');
+
+    MockClient::global()->assertNotSent(CreateMeetupEventRequest::class);
+});
+
+it('rejects a start in the past when creating', function () {
+    withPortalToken();
+    MockClient::global([
+        GetMyMeetupsRequest::class => MockResponse::make(['data' => [myMeetupFixture(['id' => 21])]]),
+    ]);
+
+    Livewire::test('event-editor')
+        ->call('open')
+        ->set('form.meetup_id', 21)
+        ->set('form.date', '2020-01-01')
+        ->set('form.time', '19:00')
+        ->call('save')
+        ->assertHasErrors('form.date')
+        ->assertNotDispatched('meetup-event-saved');
+
+    MockClient::global()->assertNotSent(CreateMeetupEventRequest::class);
+});
+
+it('pre-selects and locks the meetup when opened from a meetup detail', function () {
+    withPortalToken();
+    MockClient::global([
+        GetMyMeetupsRequest::class => MockResponse::make(['data' => [myMeetupFixture(['id' => 21])]]),
+    ]);
+
+    Livewire::test('event-editor')
+        ->call('open', null, 21)
+        ->assertSet('form.meetup_id', 21)
+        ->assertSet('form.meetupName', 'Einundzwanzig Aschaffenburg')
+        ->assertSet('meetupLocked', true);
+});
+
+it('loads an own event for editing and sends an update', function () {
+    withPortalToken();
+    MockClient::global([
+        GetMyMeetupsRequest::class => MockResponse::make(['data' => [myMeetupFixture(['id' => 21])]]),
+        GetMyMeetupEventsRequest::class => MockResponse::make(['data' => [myMeetupEventFixture(['id' => 55, 'meetup_id' => 21])]]),
+        UpdateMeetupEventRequest::class => MockResponse::make(myMeetupEventFixture(['id' => 55]), 200),
+    ]);
+
+    Livewire::test('event-editor')
+        ->call('open', 55)
+        ->assertSet('editingId', 55)
+        ->assertSet('form.meetup_id', 21)
+        ->assertSet('form.date', '2026-12-31')
+        ->assertSet('form.time', '19:00')
+        ->assertSet('meetupLocked', true)
+        ->set('form.location', 'Neuer Ort')
+        ->call('save')
+        ->assertHasNoErrors()
+        ->assertDispatched('meetup-event-saved');
+
+    MockClient::global()->assertSent(fn (Request $request): bool => $request instanceof UpdateMeetupEventRequest
+        && $request->resolveEndpoint() === '/meetup-events/55'
+        && $request->body()->all()['location'] === 'Neuer Ort');
+});
+
+it('does not enforce the future rule when editing a past event', function () {
+    withPortalToken();
+    MockClient::global([
+        GetMyMeetupsRequest::class => MockResponse::make(['data' => [myMeetupFixture(['id' => 21])]]),
+        GetMyMeetupEventsRequest::class => MockResponse::make(['data' => [
+            myMeetupEventFixture(['id' => 55, 'meetup_id' => 21, 'start' => '2022-01-01T19:00:00.000000Z']),
+        ]]),
+        UpdateMeetupEventRequest::class => MockResponse::make(myMeetupEventFixture(['id' => 55]), 200),
+    ]);
+
+    Livewire::test('event-editor')
+        ->call('open', 55)
+        ->set('form.location', 'Korrektur')
+        ->call('save')
+        ->assertHasNoErrors()
+        ->assertDispatched('meetup-event-saved');
+});
+
+it('maps a 422 start error back onto the date field', function () {
+    withPortalToken();
+    MockClient::global([
+        GetMyMeetupsRequest::class => MockResponse::make(['data' => [myMeetupFixture(['id' => 21])]]),
+        CreateMeetupEventRequest::class => MockResponse::make([
+            'message' => 'The given data was invalid.',
+            'errors' => ['start' => ['Das Startdatum ist ungültig.']],
+        ], 422),
+    ]);
+
+    Livewire::test('event-editor')
+        ->call('open')
+        ->set('form.meetup_id', 21)
+        ->set('form.date', '2026-12-31')
+        ->set('form.time', '19:00')
+        ->call('save')
+        ->assertHasErrors('form.date')
+        ->assertSee('Das Startdatum ist ungültig.')
+        ->assertNotDispatched('meetup-event-saved');
+});
+
+it('keeps the editor open and reports a 403 when editing a foreign event', function () {
+    withPortalToken();
+    MockClient::global([
+        GetMyMeetupsRequest::class => MockResponse::make(['data' => [myMeetupFixture(['id' => 21])]]),
+        GetMyMeetupEventsRequest::class => MockResponse::make(['data' => [myMeetupEventFixture(['id' => 55, 'meetup_id' => 21])]]),
+        UpdateMeetupEventRequest::class => MockResponse::make(['message' => 'This action is unauthorized.'], 403),
+    ]);
+
+    Livewire::test('event-editor')
+        ->call('open', 55)
+        ->set('form.location', 'Geändert')
+        ->call('save')
+        ->assertNotDispatched('meetup-event-saved')
+        ->assertSet('editingId', 55);
+});
+
+it('hints to create a meetup first when the user has none', function () {
+    withPortalToken();
+    MockClient::global([
+        GetMyMeetupsRequest::class => MockResponse::make(['data' => []]),
+    ]);
+
+    Livewire::test('event-editor')
+        ->call('open')
+        ->assertSee(__('Lege zuerst ein eigenes Meetup an'));
+});
+
+it('does not send a write without a portal token', function () {
+    withoutPortalToken();
+
+    // Ohne Token liefert myMeetups() leer (kein Request) und der PortalWriter
+    // bricht vor dem Senden ab — der Termin wird nicht angelegt.
+    Livewire::test('event-editor')
+        ->call('open')
+        ->set('form.meetup_id', 21)
+        ->set('form.date', '2026-12-31')
+        ->set('form.time', '19:00')
+        ->call('save')
+        ->assertNotDispatched('meetup-event-saved');
+});

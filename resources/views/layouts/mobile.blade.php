@@ -78,11 +78,13 @@
                 {{-- Globale Suche (Phase 2.3), per Header-Lupe geöffnet. --}}
                 <livewire:global-search/>
 
-                {{-- Meetup-Editor (Phase 4): besitzt das Create-/Edit-Sheet
-                     `create-meetup`, geöffnet vom FAB und der „Meine“-Liste.
-                     Nur für verbundene Nutzer — Schreiben braucht ein Token. --}}
+                {{-- Editor-Sheets (Phase 4/5): Meetup-Editor besitzt `create-meetup`,
+                     Termin-Editor `create-event`. Geöffnet vom FAB, der „Meine“-Liste
+                     und der Termin-Verwaltung im Meetup-Detail. Nur für verbundene
+                     Nutzer — Schreiben braucht ein Token. --}}
                 @if ($connected)
                     <livewire:meetup-editor/>
+                    <livewire:event-editor/>
                 @endif
 
                 <flux:modal name="main-menu" variant="flyout" class="menu-flyout !p-0">

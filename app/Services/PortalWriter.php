@@ -60,7 +60,7 @@ final class PortalWriter
      */
     public function createMeetupEvent(array $payload): WriteResult
     {
-        return $this->send(new CreateMeetupEventRequest($payload), ['meetup-events', 'map-meetups']);
+        return $this->send(new CreateMeetupEventRequest($payload), ['meetup-events', 'map-meetups', 'my-meetup-events']);
     }
 
     /**
@@ -68,7 +68,7 @@ final class PortalWriter
      */
     public function updateMeetupEvent(int $id, array $payload): WriteResult
     {
-        return $this->send(new UpdateMeetupEventRequest($id, $payload), ['meetup-events', 'map-meetups']);
+        return $this->send(new UpdateMeetupEventRequest($id, $payload), ['meetup-events', 'map-meetups', 'my-meetup-events']);
     }
 
     /**

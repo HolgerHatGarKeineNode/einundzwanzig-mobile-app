@@ -14,6 +14,7 @@ use App\Data\Portal\MapMeetupData;
 use App\Data\Portal\MeetupData;
 use App\Data\Portal\MeetupEventData;
 use App\Data\Portal\MemberMeetupData;
+use App\Data\Portal\MyMeetupEventData;
 use App\Data\Portal\UserProfileData;
 use App\Data\Portal\VenueData;
 use App\Http\Integrations\Portal\PortalConnector;
@@ -28,6 +29,7 @@ use App\Http\Integrations\Portal\Requests\GetMapMeetupsRequest;
 use App\Http\Integrations\Portal\Requests\GetMeetupEventsRequest;
 use App\Http\Integrations\Portal\Requests\GetMemberMeetupsRequest;
 use App\Http\Integrations\Portal\Requests\GetMyCourseEventsRequest;
+use App\Http\Integrations\Portal\Requests\GetMyMeetupEventsRequest;
 use App\Http\Integrations\Portal\Requests\GetMyMeetupsRequest;
 use App\Http\Integrations\Portal\Requests\GetUserRequest;
 use App\Http\Integrations\Portal\Requests\GetVenuesRequest;
@@ -342,6 +344,30 @@ final class PortalApi
         );
 
         return GetMyCourseEventsRequest::collectData($json ?? []);
+    }
+
+    /**
+     * Eigene Meetup-Termine (vom Nutzer erstellt, alle Meetups). Ohne
+     * Portal-Token leer, ohne Request. Das Portal filtert nicht nach Meetup —
+     * die Zuordnung übernimmt der Aufrufer in-memory über meetup_id.
+     *
+     * @return Collection<int, MyMeetupEventData>
+     */
+    public function myMeetupEvents(): Collection
+    {
+        if (! $this->portalAuth->hasToken()) {
+            return new Collection;
+        }
+
+        $json = $this->remember(
+            'my-meetup-events',
+            [],
+            self::TTL_MINE_SECONDS,
+            new GetMyMeetupEventsRequest,
+            fn (Response $response): mixed => $response->json('data'),
+        );
+
+        return GetMyMeetupEventsRequest::collectData($json ?? []);
     }
 
     /**

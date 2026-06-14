@@ -2,6 +2,7 @@
 
 use App\Http\Integrations\Portal\Requests\GetMapMeetupsRequest;
 use App\Http\Integrations\Portal\Requests\GetMeetupEventsRequest;
+use App\Http\Integrations\Portal\Requests\GetMyMeetupEventsRequest;
 use App\Http\Integrations\Portal\Requests\GetMyMeetupsRequest;
 use Livewire\Livewire;
 use Native\Mobile\Facades\Browser;
@@ -157,6 +158,39 @@ it('shows the meetup detail with next event, intro and links', function () {
         ->assertSee('jeden Monat')
         ->assertSee('Telegram')
         ->assertSee('Website');
+});
+
+it('shows the own-event management section on the detail of an own meetup', function () {
+    withPortalToken();
+    MockClient::global([
+        GetMapMeetupsRequest::class => MockResponse::make([mapMeetupFixture()]),
+        GetMeetupEventsRequest::class => MockResponse::make([]),
+        GetMyMeetupsRequest::class => MockResponse::make(['data' => [myMeetupFixture(['id' => 21, 'slug' => 'aschaffenburg'])]]),
+        GetMyMeetupEventsRequest::class => MockResponse::make(['data' => [
+            myMeetupEventFixture(['id' => 55, 'meetup_id' => 21, 'location' => 'Bitcoin-Bar Aschaffenburg']),
+            myMeetupEventFixture(['id' => 40, 'meetup_id' => 21, 'start' => '2022-01-01T19:00:00.000000Z', 'location' => 'Altes Lokal']),
+        ]]),
+    ]);
+
+    Livewire::test('pages::meetups.show', ['slug' => 'aschaffenburg'])
+        ->assertSee(__('Meine Termine'))
+        ->assertSee(__('Termin anlegen'))
+        ->assertSee('Bitcoin-Bar Aschaffenburg')
+        ->assertSee(__('Vergangene Termine'))
+        ->assertSee('Altes Lokal');
+});
+
+it('hides the own-event management section for non-owners', function () {
+    withPortalToken();
+    MockClient::global([
+        GetMapMeetupsRequest::class => MockResponse::make([mapMeetupFixture()]),
+        GetMeetupEventsRequest::class => MockResponse::make([]),
+        GetMyMeetupsRequest::class => MockResponse::make(['data' => []]),
+    ]);
+
+    Livewire::test('pages::meetups.show', ['slug' => 'aschaffenburg'])
+        ->assertSee('Einundzwanzig Aschaffenburg')
+        ->assertDontSee(__('Meine Termine'));
 });
 
 it('shows a friendly fallback for unknown meetup slugs', function () {

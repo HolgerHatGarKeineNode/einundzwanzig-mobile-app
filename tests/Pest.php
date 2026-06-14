@@ -152,6 +152,25 @@ function meetupEventFixture(array $overrides = []): array
 }
 
 /**
+ * Eigener Meetup-Termin von GET /api/my-meetup-events (MeetupEventResource,
+ * flache Schreib-/Eigentums-Sicht mit id + meetup_id, im data-Wrapper).
+ *
+ * @param  array<string, mixed>  $overrides
+ * @return array<string, mixed>
+ */
+function myMeetupEventFixture(array $overrides = []): array
+{
+    return array_merge([
+        'id' => 55,
+        'meetup_id' => 21,
+        'start' => '2026-12-31T19:00:00.000000Z',
+        'location' => 'Bitcoin-Bar',
+        'description' => 'Jahresabschluss-Stammtisch',
+        'link' => 'https://t.me/einundzwanzig_aschaffenburg',
+    ], $overrides);
+}
+
+/**
  * Eigenes Meetup von GET /api/my-meetups (MeetupResource, ohne data-Wrapper).
  *
  * @param  array<string, mixed>  $overrides

@@ -1,13 +1,17 @@
 <?php
 
 use App\Data\Portal\MapMeetupData;
+use App\Data\Portal\MeetupData;
 use App\Data\Portal\MeetupEventData;
+use App\Data\Portal\MyMeetupEventData;
 use App\Livewire\PortalPage;
 use App\Services\PortalApi;
+use App\Services\PortalAuth;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Collection;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\Layout;
+use Livewire\Attributes\On;
 use Native\Mobile\Facades\Share;
 
 new #[Layout('layouts::mobile', ['title' => 'Meetup', 'heading' => 'Meetup', 'back' => '/meetups'])] class extends PortalPage {
@@ -48,6 +52,57 @@ new #[Layout('layouts::mobile', ['title' => 'Meetup', 'heading' => 'Meetup', 'ba
                 && $event->start->equalTo($meetup->next_event->start))
             ->sortBy(fn (MeetupEventData $event): int => $event->start->getTimestamp())
             ->values();
+    }
+
+    /**
+     * Das passende eigene Meetup (per Slug), wenn der verbundene Nutzer dieses
+     * Meetup erstellt hat — schaltet die Termin-Verwaltung frei (Phase 5.3).
+     * `myMeetups()` enthält nur die eigenen Meetups; der Slug-Abgleich ist daher
+     * eindeutig (das Portal vergibt Slugs pro Nutzer eindeutig).
+     */
+    #[Computed]
+    public function ownMeetup(): ?MeetupData
+    {
+        if (! app(PortalAuth::class)->hasToken()) {
+            return null;
+        }
+
+        return app(PortalApi::class)
+            ->myMeetups()
+            ->first(fn (MeetupData $meetup): bool => $meetup->slug === $this->slug);
+    }
+
+    /**
+     * Eigene Termine dieses Meetups (zum Verwalten), nach Startzeit sortiert.
+     * Kommende vs. vergangene wird im Template aus dieser einen Liste abgeleitet.
+     *
+     * @return Collection<int, MyMeetupEventData>
+     */
+    #[Computed]
+    public function myEvents(): Collection
+    {
+        $own = $this->ownMeetup;
+
+        if ($own === null) {
+            return new Collection;
+        }
+
+        return app(PortalApi::class)
+            ->myMeetupEvents()
+            ->filter(fn (MyMeetupEventData $event): bool => $event->meetup_id === $own->id)
+            ->sortBy(fn (MyMeetupEventData $event): int => $event->start->getTimestamp())
+            ->values();
+    }
+
+    /**
+     * Nach dem Anlegen/Bearbeiten im Termin-Editor (Phase 5) die eigene
+     * Termin-Liste neu laden. Der PortalWriter hat den Cache bereits
+     * invalidiert; das Verwerfen des Computeds erzwingt den frischen Refetch.
+     */
+    #[On('meetup-event-saved')]
+    public function refreshMyEvents(): void
+    {
+        unset($this->myEvents);
     }
 
     /**
@@ -110,6 +165,57 @@ new #[Layout('layouts::mobile', ['title' => 'Meetup', 'heading' => 'Meetup', 'ba
                 </flux:button>
             </div>
         </section>
+
+        {{-- Termin-Verwaltung (Phase 5.3): nur für das eigene Meetup. Anlegen
+             öffnet den Editor mit vorgewähltem Meetup, jede eigene Zeile bietet
+             eine Inline-Edit-Affordance; kommende vs. vergangene Termine getrennt. --}}
+        @if ($this->ownMeetup)
+            <section class="surface-card p-6">
+                <div class="flex items-center justify-between gap-3">
+                    <flux:heading size="lg" level="2">{{ __('Meine Termine') }}</flux:heading>
+                    <flux:button
+                        type="button"
+                        size="sm"
+                        variant="primary"
+                        icon="plus"
+                        x-on:click="$haptic('medium'); $flux.modal('create-event').show(); Livewire.dispatch('open-event-editor', {{ Js::from(['meetupId' => $this->ownMeetup->id]) }})"
+                        class="cursor-pointer"
+                    >
+                        {{ __('Termin anlegen') }}
+                    </flux:button>
+                </div>
+
+                @php
+                    // Kommende vs. vergangene Termine aus der einen myEvents-Liste
+                    // ableiten (aufsteigend sortiert); vergangene jüngste zuerst.
+                    $upcoming = $this->myEvents->reject(fn ($event) => $event->start->isPast());
+                    $past = $this->myEvents->filter(fn ($event) => $event->start->isPast())->reverse();
+                @endphp
+
+                @if ($this->myEvents->isEmpty())
+                    <flux:text class="mt-3 text-sm">
+                        {{ __('Noch keine eigenen Termine — lege den ersten an.') }}
+                    </flux:text>
+                @else
+                    @if ($upcoming->isNotEmpty())
+                        <div class="mt-3 flex flex-col gap-2">
+                            @foreach ($upcoming as $event)
+                                <x-my-event-row :event="$event" wire:key="my-upcoming-{{ $event->id }}"/>
+                            @endforeach
+                        </div>
+                    @endif
+
+                    @if ($past->isNotEmpty())
+                        <flux:heading size="sm" level="3" class="mt-5 text-zinc-500 dark:text-zinc-400">{{ __('Vergangene Termine') }}</flux:heading>
+                        <div class="mt-2 flex flex-col gap-2">
+                            @foreach ($past as $event)
+                                <x-my-event-row :event="$event" past wire:key="my-past-{{ $event->id }}"/>
+                            @endforeach
+                        </div>
+                    @endif
+                @endif
+            </section>
+        @endif
 
         @if ($this->meetup->next_event)
             <section class="surface-card p-6">

@@ -124,6 +124,50 @@ it('creates (idempotent) and updates a meetup against the live portal', function
     expect($updated->status)->toBe(WriteStatus::Success);
 })->group('integration');
 
+it('creates (idempotent) and updates a meetup event against the live portal', function () {
+    $token = env('PORTAL_TEST_TOKEN');
+
+    if (blank($token)) {
+        test()->markTestSkipped('PORTAL_TEST_TOKEN nicht gesetzt — Schreibtest übersprungen.');
+    }
+
+    withPortalToken((string) $token);
+    SecureStorage::shouldReceive('set')->andReturnTrue();
+
+    // Ein eigenes Meetup als Ziel — den Integrationstest-Datensatz wiederverwenden,
+    // den der Meetup-Schreibtest anlegt.
+    $meetup = app(PortalApi::class)->myMeetups()->first();
+    expect($meetup)->not->toBeNull('Kein eigenes Meetup vorhanden — bitte zuerst den Meetup-Schreibtest laufen lassen oder seeden.');
+
+    // Idempotent: einen vorhandenen eigenen Termin dieses Meetups wiederverwenden,
+    // sonst genau einen neuen anlegen (statt bei jedem Lauf einen weiteren).
+    $existing = app(PortalApi::class)->myMeetupEvents()
+        ->firstWhere('meetup_id', $meetup->id);
+
+    if ($existing === null) {
+        $created = app(PortalWriter::class)->createMeetupEvent([
+            'meetup_id' => $meetup->id,
+            'start' => now()->addMonth()->format('Y-m-d H:i'),
+            'location' => 'Integrationstest-Ort',
+            'description' => 'Automatisch durch den Integrationstest angelegt.',
+        ]);
+
+        expect($created->status)->toBe(WriteStatus::Success)
+            ->and($created->successful())->toBeTrue();
+
+        Cache::flush();
+        $existing = app(PortalApi::class)->myMeetupEvents()->firstWhere('meetup_id', $meetup->id);
+    }
+
+    expect($existing)->not->toBeNull('Angelegter Termin nicht in my-meetup-events gefunden.');
+
+    $updated = app(PortalWriter::class)->updateMeetupEvent($existing->id, [
+        'location' => 'Aktualisiert durch den Integrationstest am '.now()->toDateTimeString(),
+    ]);
+
+    expect($updated->status)->toBe(WriteStatus::Success);
+})->group('integration');
+
 it('rejects an invalid create with structured 422 field errors', function () {
     $token = env('PORTAL_TEST_TOKEN');
 
