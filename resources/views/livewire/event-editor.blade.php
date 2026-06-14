@@ -2,11 +2,10 @@
 
 use App\Data\Portal\MeetupData;
 use App\Data\Portal\MyMeetupEventData;
+use App\Livewire\Concerns\HandlesPortalWriteFeedback;
 use App\Livewire\Forms\EventForm;
 use App\Services\PortalApi;
 use App\Services\PortalWriter;
-use App\Services\WriteResult;
-use App\Services\WriteStatus;
 use App\Support\Markdown;
 use Carbon\CarbonImmutable;
 use Flux\Flux;
@@ -30,6 +29,8 @@ use Livewire\Component;
  * das `meetup-event-saved`-Event neu.
  */
 new class extends Component {
+    use HandlesPortalWriteFeedback;
+
     public EventForm $form;
 
     /** Null = Anlegen, sonst die ID des bearbeiteten eigenen Termins. */
@@ -160,7 +161,8 @@ new class extends Component {
             return;
         }
 
-        $this->handleFailure($result);
+        // Das Portal-Feld `start` (kombiniertes Datum+Zeit) zeigen wir am Datumsfeld an.
+        $this->reportWriteFailure($result, __('Du darfst diesen Termin nicht bearbeiten.'), ['start' => 'date']);
     }
 
     private function startsInPast(): bool
@@ -181,32 +183,6 @@ new class extends Component {
         $this->dispatch('meetup-event-saved');
         $this->js("window.haptic && window.haptic('success')");
         $this->resetEditor();
-    }
-
-    private function handleFailure(WriteResult $result): void
-    {
-        match ($result->status) {
-            WriteStatus::ValidationError => $this->applyServerErrors($result),
-            WriteStatus::Forbidden => Flux::toast(text: __('Du darfst diesen Termin nicht bearbeiten.'), variant: 'danger'),
-            WriteStatus::Unauthorized => Flux::toast(text: __('Bitte verbinde zuerst dein Portal-Konto.'), variant: 'danger'),
-            default => Flux::toast(text: __('Senden fehlgeschlagen. Bitte prüfe deine Verbindung und versuche es erneut.'), variant: 'danger'),
-        };
-
-        $this->js("window.haptic && window.haptic('error')");
-    }
-
-    /**
-     * Server-Validierungsfehler (422) auf die Form-Felder mappen. Das
-     * Portal-Feld `start` (kombiniertes Datum+Zeit) zeigen wir am Datumsfeld an.
-     */
-    private function applyServerErrors(WriteResult $result): void
-    {
-        foreach ($result->errors as $field => $messages) {
-            $target = $field === 'start' ? 'date' : $field;
-            $this->addError("form.{$target}", $messages[0] ?? __('Ungültige Eingabe.'));
-        }
-
-        Flux::toast(text: __('Bitte prüfe die markierten Felder.'), variant: 'warning');
     }
 };
 ?>

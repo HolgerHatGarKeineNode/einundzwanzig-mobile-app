@@ -168,6 +168,90 @@ it('creates (idempotent) and updates a meetup event against the live portal', fu
     expect($updated->status)->toBe(WriteStatus::Success);
 })->group('integration');
 
+it('creates (idempotent) and updates a city against the live portal', function () {
+    $token = env('PORTAL_TEST_TOKEN');
+
+    if (blank($token)) {
+        test()->markTestSkipped('PORTAL_TEST_TOKEN nicht gesetzt — Schreibtest übersprungen.');
+    }
+
+    withPortalToken((string) $token);
+    SecureStorage::shouldReceive('set')->andReturnTrue();
+
+    // Idempotent: einen festen Test-Datensatz wiederverwenden.
+    $name = 'Integrationstest Stadt (mobile)';
+    $existing = app(PortalApi::class)->myCities()->firstWhere('name', $name);
+
+    if ($existing === null) {
+        // Land OHNE Suche holen (search nutzt portalseitig ilike → bricht auf
+        // einer SQLite-Portal-DB).
+        $country = app(PortalApi::class)->countries()->first();
+        expect($country)->not->toBeNull('Kein Land im lokalen Portal vorhanden — bitte seeden.');
+
+        $created = app(PortalWriter::class)->createCity([
+            'name' => $name,
+            'country_id' => $country->id,
+            'latitude' => 49.013432,
+            'longitude' => 12.101624,
+            'population' => 100000,
+        ]);
+
+        expect($created->status)->toBe(WriteStatus::Success)
+            ->and($created->successful())->toBeTrue();
+
+        Cache::flush();
+        $existing = app(PortalApi::class)->myCities()->firstWhere('name', $name);
+    }
+
+    expect($existing)->not->toBeNull('Angelegte Stadt nicht in my-cities gefunden.');
+
+    $updated = app(PortalWriter::class)->updateCity($existing->id, [
+        'population' => random_int(50_000, 500_000),
+    ]);
+
+    expect($updated->status)->toBe(WriteStatus::Success);
+})->group('integration');
+
+it('creates (idempotent) and updates a venue against the live portal', function () {
+    $token = env('PORTAL_TEST_TOKEN');
+
+    if (blank($token)) {
+        test()->markTestSkipped('PORTAL_TEST_TOKEN nicht gesetzt — Schreibtest übersprungen.');
+    }
+
+    withPortalToken((string) $token);
+    SecureStorage::shouldReceive('set')->andReturnTrue();
+
+    // Idempotent: einen festen Test-Datensatz wiederverwenden.
+    $name = 'Integrationstest Ort (mobile)';
+    $existing = app(PortalApi::class)->myVenues()->firstWhere('name', $name);
+
+    if ($existing === null) {
+        $city = app(PortalApi::class)->cities(withDetails: true)->first();
+        expect($city)->not->toBeNull('Keine Stadt im lokalen Portal vorhanden — bitte seeden.');
+
+        $created = app(PortalWriter::class)->createVenue([
+            'name' => $name,
+            'street' => 'Integrationstest-Straße 21',
+            'city_id' => $city->id,
+        ]);
+
+        expect($created->status)->toBe(WriteStatus::Success)
+            ->and($created->successful())->toBeTrue();
+
+        Cache::flush();
+        $existing = app(PortalApi::class)->myVenues()->firstWhere('name', $name);
+    }
+
+    expect($existing)->not->toBeNull('Angelegter Ort nicht in my-venues gefunden.');
+
+    $updated = app(PortalWriter::class)->updateVenue($existing->id, [
+        'street' => 'Aktualisiert am '.now()->toDateTimeString(),
+    ]);
+
+    expect($updated->status)->toBe(WriteStatus::Success);
+})->group('integration');
+
 it('rejects an invalid create with structured 422 field errors', function () {
     $token = env('PORTAL_TEST_TOKEN');
 

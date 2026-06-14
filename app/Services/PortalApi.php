@@ -14,7 +14,9 @@ use App\Data\Portal\MapMeetupData;
 use App\Data\Portal\MeetupData;
 use App\Data\Portal\MeetupEventData;
 use App\Data\Portal\MemberMeetupData;
+use App\Data\Portal\MyCityData;
 use App\Data\Portal\MyMeetupEventData;
+use App\Data\Portal\MyVenueData;
 use App\Data\Portal\UserProfileData;
 use App\Data\Portal\VenueData;
 use App\Http\Integrations\Portal\PortalConnector;
@@ -28,9 +30,11 @@ use App\Http\Integrations\Portal\Requests\GetLecturersRequest;
 use App\Http\Integrations\Portal\Requests\GetMapMeetupsRequest;
 use App\Http\Integrations\Portal\Requests\GetMeetupEventsRequest;
 use App\Http\Integrations\Portal\Requests\GetMemberMeetupsRequest;
+use App\Http\Integrations\Portal\Requests\GetMyCitiesRequest;
 use App\Http\Integrations\Portal\Requests\GetMyCourseEventsRequest;
 use App\Http\Integrations\Portal\Requests\GetMyMeetupEventsRequest;
 use App\Http\Integrations\Portal\Requests\GetMyMeetupsRequest;
+use App\Http\Integrations\Portal\Requests\GetMyVenuesRequest;
 use App\Http\Integrations\Portal\Requests\GetUserRequest;
 use App\Http\Integrations\Portal\Requests\GetVenuesRequest;
 use Closure;
@@ -368,6 +372,54 @@ final class PortalApi
         );
 
         return GetMyMeetupEventsRequest::collectData($json ?? []);
+    }
+
+    /**
+     * Eigene Veranstaltungsorte (vom Nutzer erstellt). Ohne Portal-Token leer,
+     * ohne Request. Der Stadt-Anzeigename wird vom Aufrufer über die city_id
+     * aufgelöst (die VenueResource liefert nur die id).
+     *
+     * @return Collection<int, MyVenueData>
+     */
+    public function myVenues(): Collection
+    {
+        if (! $this->portalAuth->hasToken()) {
+            return new Collection;
+        }
+
+        $json = $this->remember(
+            'my-venues',
+            [],
+            self::TTL_MINE_SECONDS,
+            new GetMyVenuesRequest,
+            fn (Response $response): mixed => $response->json('data'),
+        );
+
+        return GetMyVenuesRequest::collectData($json ?? []);
+    }
+
+    /**
+     * Eigene Städte (vom Nutzer erstellt). Ohne Portal-Token leer, ohne
+     * Request. Der Landes-Anzeigename wird vom Aufrufer über die country_id
+     * aufgelöst (die CityResource liefert nur die id).
+     *
+     * @return Collection<int, MyCityData>
+     */
+    public function myCities(): Collection
+    {
+        if (! $this->portalAuth->hasToken()) {
+            return new Collection;
+        }
+
+        $json = $this->remember(
+            'my-cities',
+            [],
+            self::TTL_MINE_SECONDS,
+            new GetMyCitiesRequest,
+            fn (Response $response): mixed => $response->json('data'),
+        );
+
+        return GetMyCitiesRequest::collectData($json ?? []);
     }
 
     /**

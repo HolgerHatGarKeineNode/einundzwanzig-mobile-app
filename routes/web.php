@@ -32,6 +32,7 @@ Route::middleware(EnsureOnboarded::class)->group(function () {
     Route::livewire('lecturers/{id}', 'pages::lecturers.show')->whereNumber('id')->name('lecturers.show');
     Route::livewire('profile', 'pages::profile.index')->name('profile');
     Route::livewire('mine', 'pages::mine.index')->name('mine');
+    Route::livewire('mine/places', 'pages::mine.places')->name('mine.places');
 });
 
 Route::middleware(['auth', 'verified'])->group(function () {

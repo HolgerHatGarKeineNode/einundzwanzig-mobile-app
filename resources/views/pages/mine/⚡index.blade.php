@@ -59,7 +59,7 @@ new #[Layout('layouts::mobile', ['title' => 'Meine Inhalte', 'heading' => 'Meine
             [
                 'icon' => 'building-office-2',
                 'label' => __('Meine Orte & Städte'),
-                'href' => route('map', ['tab' => 'staedte']),
+                'href' => route('mine.places'),
                 'subtitle' => __('Veranstaltungsorte und Städte'),
             ],
             [

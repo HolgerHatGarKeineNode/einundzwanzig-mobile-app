@@ -356,6 +356,66 @@ function venueFixture(array $overrides = []): array
 }
 
 /**
+ * Eigener Veranstaltungsort aus GET /api/my-venues (VenueResource, flache
+ * Schreib-/Eigentums-Sicht mit id + city_id + street, im data-Wrapper).
+ *
+ * @param  array<string, mixed>  $overrides
+ * @return array<string, mixed>
+ */
+function myVenueFixture(array $overrides = []): array
+{
+    return array_merge([
+        'id' => 131,
+        'city_id' => 80,
+        'name' => 'Bitcoin-Bar',
+        'slug' => 'bitcoin-bar',
+        'street' => 'Hauptstraße 1',
+        'created_by' => 7,
+        'created_at' => '2026-01-01T00:00:00.000000Z',
+        'updated_at' => '2026-06-01T00:00:00.000000Z',
+    ], $overrides);
+}
+
+/**
+ * Eigene Stadt aus GET /api/my-cities (CityResource, flache Schreib-/
+ * Eigentums-Sicht mit id + country_id + Geo, im data-Wrapper).
+ *
+ * @param  array<string, mixed>  $overrides
+ * @return array<string, mixed>
+ */
+function myCityFixture(array $overrides = []): array
+{
+    return array_merge([
+        'id' => 80,
+        'country_id' => 1,
+        'name' => 'Regensburg',
+        'slug' => 'regensburg',
+        'longitude' => 12.101624,
+        'latitude' => 49.013432,
+        'population' => 152610,
+        'created_by' => 7,
+        'created_at' => '2026-01-01T00:00:00.000000Z',
+        'updated_at' => '2026-06-01T00:00:00.000000Z',
+    ], $overrides);
+}
+
+/**
+ * Land aus GET /api/countries (id, name, code, flag).
+ *
+ * @param  array<string, mixed>  $overrides
+ * @return array<string, mixed>
+ */
+function countryFixture(array $overrides = []): array
+{
+    return array_merge([
+        'id' => 1,
+        'name' => 'Germany',
+        'code' => 'de',
+        'flag' => 'https://portal.einundzwanzig.space/vendor/blade-flags/country-de.svg',
+    ], $overrides);
+}
+
+/**
  * Profil-Cache von PortalAuth füllen, damit Seiten id/is_lecturer ohne
  * HTTP-Call lesen können.
  *

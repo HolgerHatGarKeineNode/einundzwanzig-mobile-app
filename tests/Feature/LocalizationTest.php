@@ -24,6 +24,8 @@ function mobileUiSources(): array
         resource_path('views/livewire/global-search.blade.php'),
         resource_path('views/livewire/meetup-editor.blade.php'),
         resource_path('views/livewire/event-editor.blade.php'),
+        resource_path('views/livewire/venue-editor.blade.php'),
+        resource_path('views/livewire/city-editor.blade.php'),
         resource_path('views/components/empty-state.blade.php'),
         resource_path('views/components/error-state.blade.php'),
         resource_path('views/components/portal-status.blade.php'),

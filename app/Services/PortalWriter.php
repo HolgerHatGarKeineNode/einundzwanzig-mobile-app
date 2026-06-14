@@ -76,7 +76,7 @@ final class PortalWriter
      */
     public function createVenue(array $payload): WriteResult
     {
-        return $this->send(new CreateVenueRequest($payload), ['venues']);
+        return $this->send(new CreateVenueRequest($payload), ['venues', 'my-venues']);
     }
 
     /**
@@ -84,7 +84,7 @@ final class PortalWriter
      */
     public function updateVenue(int $id, array $payload): WriteResult
     {
-        return $this->send(new UpdateVenueRequest($id, $payload), ['venues']);
+        return $this->send(new UpdateVenueRequest($id, $payload), ['venues', 'my-venues']);
     }
 
     /**
@@ -92,7 +92,7 @@ final class PortalWriter
      */
     public function createCity(array $payload): WriteResult
     {
-        return $this->send(new CreateCityRequest($payload), ['cities']);
+        return $this->send(new CreateCityRequest($payload), ['cities', 'my-cities']);
     }
 
     /**
@@ -100,7 +100,7 @@ final class PortalWriter
      */
     public function updateCity(int $id, array $payload): WriteResult
     {
-        return $this->send(new UpdateCityRequest($id, $payload), ['cities']);
+        return $this->send(new UpdateCityRequest($id, $payload), ['cities', 'my-cities']);
     }
 
     /**

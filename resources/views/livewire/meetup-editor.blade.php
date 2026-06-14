@@ -3,11 +3,10 @@
 use App\Data\Portal\CityData;
 use App\Data\Portal\MapMeetupData;
 use App\Data\Portal\MeetupData;
+use App\Livewire\Concerns\HandlesPortalWriteFeedback;
 use App\Livewire\Forms\MeetupForm;
 use App\Services\PortalApi;
 use App\Services\PortalWriter;
-use App\Services\WriteResult;
-use App\Services\WriteStatus;
 use App\Support\Markdown;
 use Flux\Flux;
 use Illuminate\Support\Collection;
@@ -28,6 +27,8 @@ use Livewire\Component;
  * Form-Felder gemappt, Erfolg/Fehler über Toast + Haptik bestätigt.
  */
 new class extends Component {
+    use HandlesPortalWriteFeedback;
+
     public MeetupForm $form;
 
     /** Null = Anlegen, sonst die ID des bearbeiteten eigenen Meetups. */
@@ -132,6 +133,20 @@ new class extends Component {
     }
 
     /**
+     * Eine im City-Editor frisch angelegte Stadt direkt übernehmen (Phase 6.2:
+     * inline aus dem Meetup-Flow). Greift nur, wenn noch keine Stadt gewählt ist.
+     */
+    #[On('city-saved')]
+    public function useSavedCity(int $id, string $name): void
+    {
+        if ($this->form->city_id !== null) {
+            return;
+        }
+
+        $this->selectCity($id, $name);
+    }
+
+    /**
      * Mögliche Duplikate beim Anlegen (Phase 4.1): in-memory auf den
      * gecachten Karten-Meetups nach Name (und, wenn gewählt, Stadt). Beim
      * Bearbeiten irrelevant.
@@ -201,7 +216,7 @@ new class extends Component {
             return;
         }
 
-        $this->handleFailure($result);
+        $this->reportWriteFailure($result, __('Du darfst dieses Meetup nicht bearbeiten.'));
     }
 
     private function handleSuccess(): void
@@ -217,31 +232,6 @@ new class extends Component {
         $this->dispatch('meetup-saved');
         $this->js("window.haptic && window.haptic('success')");
         $this->resetEditor();
-    }
-
-    private function handleFailure(WriteResult $result): void
-    {
-        match ($result->status) {
-            WriteStatus::ValidationError => $this->applyServerErrors($result),
-            WriteStatus::Forbidden => Flux::toast(text: __('Du darfst dieses Meetup nicht bearbeiten.'), variant: 'danger'),
-            WriteStatus::Unauthorized => Flux::toast(text: __('Bitte verbinde zuerst dein Portal-Konto.'), variant: 'danger'),
-            default => Flux::toast(text: __('Senden fehlgeschlagen. Bitte prüfe deine Verbindung und versuche es erneut.'), variant: 'danger'),
-        };
-
-        $this->js("window.haptic && window.haptic('error')");
-    }
-
-    /**
-     * Server-Validierungsfehler (422) auf die einzelnen Form-Felder mappen
-     * (Phase 4.7), zusätzlich zu einem zusammenfassenden Toast.
-     */
-    private function applyServerErrors(WriteResult $result): void
-    {
-        foreach ($result->errors as $field => $messages) {
-            $this->addError("form.{$field}", $messages[0] ?? __('Ungültige Eingabe.'));
-        }
-
-        Flux::toast(text: __('Bitte prüfe die markierten Felder.'), variant: 'warning');
     }
 };
 ?>
@@ -296,9 +286,22 @@ new class extends Component {
                         @endforeach
                     </div>
                 @elseif (mb_strlen(trim($cityQuery)) >= 2)
-                    <flux:text class="text-sm">
-                        {{ __('Keine Stadt gefunden. Neue Städte lassen sich in einer kommenden Version direkt hier anlegen.') }}
-                    </flux:text>
+                    {{-- Inline „Stadt anlegen" (Phase 6.2): der City-Editor öffnet
+                         mit dem Suchbegriff als Namensvorschlag; nach dem Speichern
+                         übernimmt useSavedCity() die neue Stadt. --}}
+                    <div class="flex flex-col gap-2 rounded-tile border border-zinc-200 p-3 dark:border-zinc-800">
+                        <flux:text class="text-sm">{{ __('Keine Stadt gefunden.') }}</flux:text>
+                        <flux:button
+                            type="button"
+                            size="sm"
+                            variant="ghost"
+                            icon="plus"
+                            x-on:click="$haptic('medium'); $flux.modal('create-city').show(); Livewire.dispatch('open-city-editor', { name: @js(trim($cityQuery)) })"
+                            class="w-fit cursor-pointer"
+                        >
+                            {{ __('Stadt anlegen') }}
+                        </flux:button>
+                    </div>
                 @endif
             @endif
         </div>
